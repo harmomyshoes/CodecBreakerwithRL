@@ -1,0 +1,19 @@
+ 1678  python3 -m pip install --upgrade pip
+ 1679  pip install jupyter
+ 1680  nohup jupyter lab --ip 0.0.0.0 --no-browser --allow-root&
+ 1682  cd home/CodecBreakerwithRL/
+ 1683  cd /home/codecrack/CodecBreakerwithRL/
+ 1684  conda activate codecbreak
+ 1685  nohup jupyter lab --ip 0.0.0.0 --no-browser --allow-root&
+ 1686  pip install tensorflow == 2.15.0
+    pip install tf-agents == 0.19.0
+ 1697  pip install scikit-learn
+ 1698  pip install pandas
+ 1699  pip install soundfile
+ 1700  pip install librosa
+ 1701  pip install matplotlib
+ 1702  pip install audiomentations
+ 1703  pip install cylimiter
+ 1705  pip install pyclarity
+ 1687  pip uninstall numpy
+ 1695  pip install numpy==1.26.4

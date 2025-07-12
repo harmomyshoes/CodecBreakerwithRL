@@ -29,9 +29,11 @@ from tf_agents.specs import array_spec
 from tf_agents.utils import common
 from tf_agents.trajectories import time_step as ts
 import os,gc
-from config import get_config
-from env import Env_Discrete as Env
-from multicategorical_projection_network import MultiCategoricalProjectionNetwork
+from typing import Callable
+from functools import partial
+from Optimiser.config import get_config
+from Optimiser.env import Env_Discrete as Env
+from Optimiser.multicategorical_projection_network import MultiCategoricalProjectionNetwork
 
 
 #To limit TensorFlow to CPU
@@ -66,7 +68,7 @@ class discrete_RL_train:
 
     def train(self):
         #Set the environments
-        self.set_environments()
+        # self.set_environments()
         #Set the agent
         self.set_agent()
 
@@ -227,21 +229,23 @@ class discrete_RL_train:
         plt.title('Best Reward per Generation')
         plt.show()
     
-    def set_environments(self):
+    def set_environments(self, reward_fn: Callable[[np.ndarray], float]):
+        make_env = partial(Env,reward_fn = reward_fn)
+
         if self._env_num > 1:
-            parallel_env = ParallelPyEnvironment(env_constructors=[Env]*self._env_num, 
+            parallel_env = ParallelPyEnvironment(env_constructors=[make_env]*self._env_num, 
                                      start_serially=False,
                                      blocking=False,
                                      flatten=False
                                     )
 #Use the wrapper to create a TFEnvironments obj. (so that parallel computation is enabled)
             self._train_env = tf_py_environment.TFPyEnvironment(parallel_env, check_dims=True) #instance of parallel environments
-            self._eval_env = tf_py_environment.TFPyEnvironment(Env(), check_dims=False) #instance
+            self._eval_env = tf_py_environment.TFPyEnvironment(make_env(), check_dims=False) #instance
         # train_env.batch_size: The batch size expected for the actions and observations.  
             print('train_env.batch_size = parallel environment number = ', self._env_num)
         else:
-            self._train_env = tf_py_environment.TFPyEnvironment(Env(), check_dims=True)
-            self._eval_env = tf_py_environment.TFPyEnvironment(Env(), check_dims=False)
+            self._train_env = tf_py_environment.TFPyEnvironment(make_env(), check_dims=True)
+            self._eval_env = tf_py_environment.TFPyEnvironment(make_env(), check_dims=False)
 
     def set_agent(self):
         actor_net = actor_distribution_network.ActorDistributionNetwork(   

@@ -30,10 +30,12 @@ from tf_agents.networks import actor_distribution_network
 from tf_agents.specs import array_spec
 from tf_agents.utils import common
 from tf_agents.trajectories import time_step as ts
-from config import get_config
-from env import Env_Continue as Env
-from custom_normal_projection_network import NormalProjectionNetwork
+from Optimiser.config import get_config
+from Optimiser.env import Env_Continue as Env
+from Optimiser.custom_normal_projection_network import NormalProjectionNetwork
 import os,gc
+from typing import Callable
+from functools import partial
 
 #To limit TensorFlow to a specific set of GPUs
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
@@ -67,7 +69,7 @@ class continous_RL_train:
         Main function for training the agent.
         It sets up the environment, agent, and runs the training loop.
         """
-        self.set_environments()
+        #self.set_environments()
         self.set_agent()
         #################
         #replay_buffer is used to store policy exploration data
@@ -160,6 +162,13 @@ class continous_RL_train:
             #best_step_reward = f(best_solution)
             avg_step_reward = np.mean(batch_rewards[:,0:-1])
             REINFORCE_logs.append(best_step_reward)
+
+            if self._final_reward is None or best_step_reward>self._final_reward:
+                print("final reward before udpate:",self._final_reward)
+                self._final_reward = best_step_reward
+                self._final_solution = best_step.numpy()
+                print("final reward after udpate:",self._final_reward)
+                print('updated final_solution=', self._final_solution)
             
             #print(compute_reward(best_obs,alpha))
             if n%eval_intv==0:
@@ -173,15 +182,9 @@ class continous_RL_train:
                 print('best_step_index:',best_step_index)
                 print(' ')
             
-            if final_reward is None or best_step_reward>final_reward:
-                print("final reward before udpate:",final_reward)
-                final_reward = best_step_reward
-                final_solution = best_step.numpy()
-                print("final reward after udpate:",final_reward)
-                print('updated final_solution=', final_solution)
-                
-        print('final_solution=',final_solution,
-            'final_reward=',final_reward,
+   
+        print('final_solution=',self._final_solution,
+            'final_reward=',self._final_reward,
             )
         REINFORCE_logs = [max(REINFORCE_logs[0:i]) for i in range(1,update_num+1)] #rolling max
         return REINFORCE_logs, self._final_solution, self._final_reward
@@ -200,9 +203,11 @@ class continous_RL_train:
         plt.title('Best Reward per Generation')
         plt.show()
     
-    def set_environments(self):
+    def set_environments(self, reward_fn: Callable[[np.ndarray], float]):
+        make_env = partial(Env,reward_fn = reward_fn)
+        
         if self._env_num > 1:
-            parallel_env = ParallelPyEnvironment(env_constructors=[Env]*self._env_num, 
+            parallel_env = ParallelPyEnvironment(env_constructors=[make_env]*self._env_num, 
                                      start_serially=False,
                                      blocking=False,
                                      flatten=False
@@ -212,14 +217,14 @@ class continous_RL_train:
             #instance of parallel environments
             print('train_env.batch_size = parallel environment number = ', self._env_num)
         else:
-            self._train_env = tf_py_environment.TFPyEnvironment(Env(), check_dims=True)
+            self._train_env = tf_py_environment.TFPyEnvironment(make_env(), check_dims=True)
         
 
     def set_agent(self):
         actor_net = actor_distribution_network.ActorDistributionNetwork(   
                                                 self._train_env.observation_spec(),
                                                 self._train_env.action_spec(),
-                                                fc_layer_params=train_cfg["fc_layer_params_discrete"], #Hidden layers
+                                                fc_layer_params=train_cfg["fc_layer_params_continuous"], #Hidden layers
                                                 seed=0, #seed used for Keras kernal initializers for NormalProjectionNetwork.
                                                 #discrete_projection_net=_categorical_projection_net
                                                 activation_fn = tf.math.tanh,

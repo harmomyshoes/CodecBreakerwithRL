@@ -1,11 +1,12 @@
 import numpy as np
-import config
-from config import get_config
-from evaluator import f
+import Optimiser.config
+from Optimiser.config import get_config
+from Optimiser.evaluator import f
 from tf_agents.environments import py_environment
 from tf_agents.specs import array_spec
 from tf_agents.trajectories import time_step as ts
 from tf_agents.trajectories.time_step import StepType
+from typing import Callable
 
 cfg = get_config()
 
@@ -26,7 +27,7 @@ def compute_reward(state):
     return f(state)
 
 class Env_Discrete(py_environment.PyEnvironment):
-    def __init__(self):
+    def __init__(self, reward_fn: Callable[[np.ndarray], float]):
         '''The function to initialize an Env obj.
         '''
         #Specify the requirement for the value of action, (It is a 2d-array for this case)
@@ -38,6 +39,7 @@ class Env_Discrete(py_environment.PyEnvironment):
         #                    minimum=np.array([0]*N), 
         #                    maximum=act_max-act_min, 
         #                    name='action') #a_t is an 2darray
+        self._reward_fn = reward_fn
         env_cfg = cfg["env"]
         self._state_dim = env_cfg["state_dim"]
         self._act_min   = np.array(env_cfg["act_min"], dtype=np.int32)
@@ -48,7 +50,7 @@ class Env_Discrete(py_environment.PyEnvironment):
         self._action_spec = array_spec.BoundedArraySpec(
                                 shape=(self._state_dim,),
                                 dtype=np.int32,
-                                minimum=np.array([0, 0, 0], dtype=np.int32),
+                                minimum=np.array([0]*self._state_dim, dtype=np.int32),
                                 maximum=self._act_max-self._act_min,
                                 name='action')
     
@@ -121,8 +123,8 @@ class Env_Discrete(py_environment.PyEnvironment):
         self._step_counter +=1
         
         ################# --- Compute R_{t+1}=R(S_t,A_t)
-        R = compute_reward(self._state)
-        
+        #R = compute_reward(self._state)
+        R = np.float32(self._reward_fn(self._state))
         #Set conditions for termination
         if self._step_counter>=cfg["training"]["sub_episode_length"]-1:
             self._episode_ended = True  #value for t+1
@@ -139,7 +141,7 @@ class Env_Discrete(py_environment.PyEnvironment):
             return ts.transition(np.array(self._state, dtype=np.float32), reward=R, discount=cfg["training"]["disc_factor"])
 
 class Env_Continue(py_environment.PyEnvironment):
-    def __init__(self):
+    def __init__(self, reward_fn: Callable[[np.ndarray], float]):
         env_cfg = cfg["env"]
         self._state_dim = env_cfg["state_dim"]
         self._act_min   = np.array(env_cfg["act_min"], dtype=np.float32)
@@ -164,6 +166,7 @@ class Env_Continue(py_environment.PyEnvironment):
         #stop_threshold is a condition for terminating the process for looking for the solution
         #self._stop_threshold = 0.01
         self._step_counter = 0
+        self._reward_fn = reward_fn
 
     def action_spec(self):
         #return the format requirement for action
@@ -220,8 +223,7 @@ class Env_Continue(py_environment.PyEnvironment):
         self._step_counter +=1
         
         ################# --- Compute R_{t+1}=R(S_t,A_t)
-        R = compute_reward(self._state)
-        
+        R = np.float32(self._reward_fn(self._state))
         #Set conditions for termination
         if self._step_counter>=cfg["training"]["sub_episode_length"]-1:
             self._episode_ended = True  #value for t+1

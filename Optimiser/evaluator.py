@@ -1,5 +1,5 @@
 import numpy as np
-from config import get_config
+from Optimiser.config import get_config
 def f(x,lambda_coef=0.3):
     return -np.sum((x**2 -1)**2 - lambda_coef*(x-1)**2 + 5)
 
