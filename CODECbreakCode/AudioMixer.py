@@ -554,7 +554,7 @@ class SingleFileAudioMixer:
         mixing_data = Lufs_Transform(mixing_data, mixing_sr)
         self.MixingRMS = round(NEUtil.calculate_rms_dB(mixing_data),2)
         self.MixingClippingPercentage, self.MixingClippingSamplesNum = NEUtil.calcaulate_cliped_samples(mixing_data)
-        print(f"After LUFS, the mixing ouput in the RMS, Total: {round(NEUtil.calculate_rms_dB(mixing_data),2)}dB, Clipping Ratio&Cliped Num: {NEUtil.calcaulate_cliped_samples(mixing_data)}")
+#        print(f"After LUFS, the mixing ouput in the RMS, Total: {round(NEUtil.calculate_rms_dB(mixing_data),2)}dB, Clipping Ratio&Cliped Num: {NEUtil.calcaulate_cliped_samples(mixing_data)}")
         return mixing_data,mixing_sr
 
     def LoadSingleFile(self, filename, foldpath,isMONO, StartingTime,Duration):

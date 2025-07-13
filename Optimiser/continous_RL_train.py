@@ -24,6 +24,8 @@ from matplotlib import cm
 from mpl_toolkits.mplot3d import axes3d
 from matplotlib.axes import Axes as ax
 import numpy as np
+import pandas as pd
+from datetime import datetime
 import tensorflow as tf
 import tf_agents
 from tf_agents.networks import actor_distribution_network
@@ -49,9 +51,20 @@ cfg = get_config()
 train_cfg = cfg["training"]
 
 class continous_RL_train: 
-    def __init__(self):
-        self._env_num = train_cfg["env_num"]
-        self._sub_episode_length = train_cfg["sub_episode_length"] #number of time_steps in a sub-episode
+    def __init__(self,sub_episode_length =0, sub_episode_num = 0, env_num = 0):
+
+        if env_num == 0:
+            self._env_num = train_cfg["env_num"]
+        else:
+            self._env_num = env_num
+        if sub_episode_length == 0:
+            self._sub_episode_length = train_cfg["sub_episode_length"] #number of time_steps in a sub-episode
+        else:
+            self._sub_episode_length = sub_episode_length
+        if sub_episode_num == 0:
+            self._sub_episode_num = train_cfg["sub_episode_num_single_batch"] #number of sub-episodes in each episode
+        else:
+            self._sub_episode_num = sub_episode_num
         self._episode_length = self._sub_episode_length * train_cfg["sub_episode_num_single_batch"] #number of time_steps in an episode
         self._sub_episode_num = int(self._env_num* train_cfg["sub_episode_num_single_batch"])
         self._train_env = None
@@ -60,11 +73,15 @@ class continous_RL_train:
         self._train_step_num = 0 #number of training steps
         self._final_reward = train_cfg["final_reward"] #the best reward found so far
         self._final_solution = cfg["env"]["x0_reinforce"].copy() #the best solution found so far
+        self._final_reward_list = [] #the best reward found so far
+        self._final_solution_list = [] #the best solution found so far
         #Learning Schedule = initial_lr * (C/(step+C))
         self._opt = tf.keras.optimizers.legacy.SGD(
             learning_rate=lr_schedule(initial_lr=train_cfg["initial_lr"], C=train_cfg["lr_half_decay_steps"]))
 
-    def train(self):
+    def train(self, update_num = 0,
+                eval_intv = 0,
+              ):
         """
         Main function for training the agent.
         It sets up the environment, agent, and runs the training loop.
@@ -94,10 +111,17 @@ class continous_RL_train:
                                             )
 
         REINFORCE_logs = [] #for logging the best objective value of the best solution among all the solutions used for one update of theta
+
+
+        ####Examine on the update number and interval
+        if update_num == 0:
+            update_num = train_cfg["generation_num"]
+        if eval_intv == 0:
+            eval_intv = train_cfg["eval_every"]
         
         update_num = train_cfg["generation_num"] #number of updates for the policy 
         eval_intv = train_cfg["eval_every"] #number of updates required before each policy evaluation
-        plot_intv = train_cfg["plot_every"] #number of updates required before each training progress plot
+
        
         tf.random.set_seed(0)
         for n in range(0,update_num):
@@ -166,7 +190,9 @@ class continous_RL_train:
             if self._final_reward is None or best_step_reward>self._final_reward:
                 print("final reward before udpate:",self._final_reward)
                 self._final_reward = best_step_reward
+                self._final_reward_list.append(self._final_reward)
                 self._final_solution = best_step.numpy()
+                self._final_solution_list.append(self._final_solution)
                 print("final reward after udpate:",self._final_reward)
                 print('updated final_solution=', self._final_solution)
             
@@ -251,7 +277,6 @@ class continous_RL_train:
         
         self._REINFORCE_agent.initialize()
 
-
     #Functions needed for training
     def extract_episode(self,traj_batch,epi_length,attr_name = 'observation'):
         """
@@ -285,6 +310,29 @@ class continous_RL_train:
             
         return tf.constant(new_attr,dtype=attr.dtype)
 
+def save_results(self, filefold, columns=[], is_outputfulldata = True):
+        """
+        Save the results of the genetic algorithm to a CSV file.
+
+        """
+        if filefold is None:
+            raise ValueError("filefold cannot be None")
+        else:
+            if not os.path.exists(filefold): 
+                os.makedirs(filefold+ 'Data/')
+
+        dims = cfg["env"]["state_dim"]
+
+        if not para_columns:
+            para_columns = [f'gene_{i}' for i in range(dims)]
+
+        score_df = pd.DataFrame(self._final_reward_list, columns=['score'])
+        manip_df = pd.DataFrame(self._final_solution_list, columns=para_columns)
+        data_file_path = os.path.join(filefold, 'Data', f'Evo_Data_BestResults{datetime.now().strftime("%Y%m%d%H%M")}.csv')
+
+
+        Evo_Data = pd.concat([score_df, manip_df], axis=1)
+        Evo_Data.to_csv(data_file_path, index=False)
 
 
 class lr_schedule(tf.keras.optimizers.schedules.LearningRateSchedule):

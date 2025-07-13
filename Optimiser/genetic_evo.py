@@ -1,6 +1,8 @@
+import os
 import pygad
 import numpy as np
 import pandas as pd
+from datetime import datetime
 from CODECbreakCode.AudioMixer import FullTrackAudioMixer
 import CODECbreakCode.Evaluator as Evaluator
 from CODECbreakCode.Evaluator import MeasureHAAQIOutput
@@ -120,3 +122,37 @@ class GeneticOptimiser:
         plt.ylabel('Best Solution Fitness')
         plt.title('Genetic Algorithm Optimization Progress')
         plt.show()
+
+    def save_results(self, filefold, genre_columns=[], is_outputfulldata = True):
+        """
+        Save the results of the genetic algorithm to a CSV file.
+
+        """
+        if filefold is None:
+            raise ValueError("filefold cannot be None")
+        else:
+            if not os.path.exists(filefold):
+                os.makedirs(filefold+ 'Data/')
+
+        if not genre_columns:
+            genre_columns = [f'gene_{i}' for i in range(self._gene_num)]
+
+        score_df = pd.DataFrame(self._ga_instance.best_solutions_fitness, columns=['score'])
+        manip_df = pd.DataFrame(self._ga_instance.best_solutions, columns=genre_columns)
+        data_file_path = os.path.join(filefold, 'Data', f'Evo_Data_BestResults{datetime.now().strftime("%Y%m%d%H%M")}.csv')
+
+
+        Evo_Data = pd.concat([score_df, manip_df], axis=1)
+        Evo_Data.to_csv(data_file_path, index=False)
+
+        if is_outputfulldata:
+            # Save the full data collected during the evolution
+            self._collect_data_list = np.array(self._collect_data_list)
+            if self._collect_data_list.size == 0:
+                raise ValueError("No data collected during the evolution process.")
+            
+            # Create a DataFrame with the collected data
+            Evo_Data_Full = pd.DataFrame(self._collect_data_list, columns=['score'] + genre_columns)
+            Evo_Data_Full_Path = os.path.join(filefold, 'Data', f'Evo_Data_FullResults{datetime.now().strftime("%Y%m%d%H%M")}.csv')
+            Evo_Data_Full.to_csv(Evo_Data_Full_Path, index=False)
+
