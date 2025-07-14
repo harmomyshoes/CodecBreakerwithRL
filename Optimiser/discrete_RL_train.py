@@ -230,7 +230,7 @@ class discrete_RL_train:
         plt.show()
     
     def set_environments(self, reward_fn: Callable[[np.ndarray], float]):
-        make_env = partial(Env,reward_fn = reward_fn)
+        make_env = partial(Env,reward_fn = reward_fn, sub_episode_length=self._sub_episode_length)
 
         if self._env_num > 1:
             parallel_env = ParallelPyEnvironment(env_constructors=[make_env]*self._env_num, 

@@ -51,7 +51,7 @@ cfg = get_config()
 train_cfg = cfg["training"]
 
 class continous_RL_train: 
-    def __init__(self,sub_episode_length =0, sub_episode_num = 0, env_num = 0):
+    def __init__(self,sub_episode_length=0, sub_episode_num_single_batch=0, env_num=0):
 
         if env_num == 0:
             self._env_num = train_cfg["env_num"]
@@ -61,27 +61,33 @@ class continous_RL_train:
             self._sub_episode_length = train_cfg["sub_episode_length"] #number of time_steps in a sub-episode
         else:
             self._sub_episode_length = sub_episode_length
-        if sub_episode_num == 0:
-            self._sub_episode_num = train_cfg["sub_episode_num_single_batch"] #number of sub-episodes in each episode
+
+        if sub_episode_num_single_batch == 0:
+            self._sub_episode_num_single_batch = train_cfg["sub_episode_num_single_batch"] #number of sub-episodes in each episodes(trajectories)
         else:
-            self._sub_episode_num = sub_episode_num
-        self._episode_length = self._sub_episode_length * train_cfg["sub_episode_num_single_batch"] #number of time_steps in an episode
-        self._sub_episode_num = int(self._env_num* train_cfg["sub_episode_num_single_batch"])
+            self._sub_episode_num_single_batch = sub_episode_num_single_batch
+
+        self._episode_length = int(self._sub_episode_length * self._sub_episode_num_single_batch) #number of time_steps in an single env of the trajectory
+        self._sub_episode_num = int(self._env_num* self._sub_episode_num_single_batch) #number of all sub-episodes in the parallel environments
+        # print(f"In current setting, each epoch includes env number :{self._env_num}, {self._sub_episode_num_single_batch} episodes "
+        #       f"in each env(trajectory), {self._sub_episode_length} is the time_steps in each episode, "
+        #       f"Therefore, total {self._episode_length} time_steps in each trajectory per env.")
+        print("number of sub_episodes used for a single param update:", self._sub_episode_num)
+
         self._train_env = None
         self._eval_env = None
         self._REINFORCE_agent = None
         self._train_step_num = 0 #number of training steps
         self._final_reward = train_cfg["final_reward"] #the best reward found so far
-        self._final_solution = cfg["env"]["x0_reinforce"].copy() #the best solution found so far
-        self._final_reward_list = [] #the best reward found so far
-        self._final_solution_list = [] #the best solution found so far
+        self._final_solution = cfg["env"]["x0_reinforce"].copy() #inital solution
+        self._reward_list = [] #the best reward found so far
+        self._solution_list = [] #the best solution found so far
+        self._REINFORCE_logs = [] #for logging the best objective value of the best solution among all the solutions used for one update of theta
         #Learning Schedule = initial_lr * (C/(step+C))
         self._opt = tf.keras.optimizers.legacy.SGD(
             learning_rate=lr_schedule(initial_lr=train_cfg["initial_lr"], C=train_cfg["lr_half_decay_steps"]))
 
-    def train(self, update_num = 0,
-                eval_intv = 0,
-              ):
+    def train(self, update_num=0, eval_intv=0):
         """
         Main function for training the agent.
         It sets up the environment, agent, and runs the training loop.
@@ -95,7 +101,7 @@ class continous_RL_train:
                         data_spec = self._REINFORCE_agent.collect_data_spec,  # describe spec for a single iterm in the buffer. A TensorSpec or a list/tuple/nest of TensorSpecs describing a single item that can be stored in this buffer.
                         batch_size = self._env_num,    # number of parallel worlds, where in each world there is an agent generating trajectories
                                                 # One batch corresponds to one parallel environment
-                        max_length = self._episode_length*2    # The maximum number of items that can be stored in a single batch segment of the buffer.     
+                        max_length = self._episode_length*10    # The maximum number of items that can be stored in a single batch segment of the buffer.     
                                                             # if exceeding this number previous trajectories will be dropped
         )
 
@@ -110,20 +116,26 @@ class continous_RL_train:
                                                 num_episodes = self._sub_episode_num   #SUM_i (number of episodes to be performed in the ith parallel environment)
                                             )
 
-        REINFORCE_logs = [] #for logging the best objective value of the best solution among all the solutions used for one update of theta
+
 
 
         ####Examine on the update number and interval
         if update_num == 0:
             update_num = train_cfg["generation_num"]
+
         if eval_intv == 0:
             eval_intv = train_cfg["eval_every"]
         
-        update_num = train_cfg["generation_num"] #number of updates for the policy 
-        eval_intv = train_cfg["eval_every"] #number of updates required before each policy evaluation
 
-       
+        print(f"update_num: {update_num}, eval_intv: {eval_intv}")
         tf.random.set_seed(0)
+
+        ###Code for logging with tensorboard
+        self._dist_logs = []  
+        self._summary_writer = tf.summary.create_file_writer("./tb_logs")
+        ###Code for logging with tensorboard
+
+
         for n in range(0,update_num):
             #Generate Trajectories
             replay_buffer.clear()
@@ -178,21 +190,34 @@ class continous_RL_train:
             self._opt.apply_gradients(grads_and_vars=grads_and_vars)
             self._train_step_num += 1
 
+
+
+
+            ###collecting the key information for the training process
             batch_rewards = rewards.numpy()
+            batch_obs     = observations.numpy() 
             batch_rewards[:,-1] = -np.power(10,8) #The initial reward is set as 0, we set it as this value to not affect the best_obs_index 
             best_step_reward = np.max(batch_rewards)
             best_step_index = [int(batch_rewards.argmax()/self._sub_episode_length),batch_rewards.argmax()%self._sub_episode_length+1]
             best_step = observations[best_step_index[0],best_step_index[1],:] #best solution
             #best_step_reward = f(best_solution)
             avg_step_reward = np.mean(batch_rewards[:,0:-1])
-            REINFORCE_logs.append(best_step_reward)
+            self._reward_list.append(best_step_reward)
+            self._solution_list.append(best_step.numpy())
 
-            if self._final_reward is None or best_step_reward>self._final_reward:
+            # for each episode, pick its terminal (or any) step as “solution”:
+            # for ep_idx, r in enumerate(batch_rewards):
+            #     # pick last observation of that episode:
+            #     sol = batch_obs[ep_idx, -1, :]
+            #     self._REINFORCE_logs.append([float(r), sol])
+
+            self._REINFORCE_logs.append((best_step_reward, avg_step_reward))
+
+            ###collecting the best solution and reward
+            if self._final_reward is None or best_step_reward>self._final_reward: 
                 print("final reward before udpate:",self._final_reward)
                 self._final_reward = best_step_reward
-                self._final_reward_list.append(self._final_reward)
                 self._final_solution = best_step.numpy()
-                self._final_solution_list.append(self._final_solution)
                 print("final reward after udpate:",self._final_reward)
                 print('updated final_solution=', self._final_solution)
             
@@ -207,31 +232,15 @@ class continous_RL_train:
                 print('act_mean:', actions_distribution.mean()[0,0] ) #second action mean
                 print('best_step_index:',best_step_index)
                 print(' ')
-            
-   
-        print('final_solution=',self._final_solution,
-            'final_reward=',self._final_reward,
-            )
-        REINFORCE_logs = [max(REINFORCE_logs[0:i]) for i in range(1,update_num+1)] #rolling max
-        return REINFORCE_logs, self._final_solution, self._final_reward
 
-    def plot_reinforce_logs(self, logs):
-        """
-        Plots the best reward per generation from REINFORCE_logs.
-        
-        Args:
-        logs (list or array-like): Best reward recorded at each generation.
-        """
-        plt.figure()
-        plt.plot(logs)
-        plt.xlabel('Generation')
-        plt.ylabel('Best Reward')
-        plt.title('Best Reward per Generation')
-        plt.show()
+
+        print('final_solution=',self._final_solution,'final_reward=',self._final_reward)
+#        self._REINFORCE_logs = [max(self._REINFORCE_logs[0:i]) for i in range(1,update_num+1)] #rolling max
+
     
     def set_environments(self, reward_fn: Callable[[np.ndarray], float]):
         make_env = partial(Env,reward_fn = reward_fn)
-        
+        print('train_env.batch_size = parallel environment number = ', self._env_num)        
         if self._env_num > 1:
             parallel_env = ParallelPyEnvironment(env_constructors=[make_env]*self._env_num, 
                                      start_serially=False,
@@ -241,9 +250,10 @@ class continous_RL_train:
 #Use the wrapper to create a TFEnvironments obj. (so that parallel computation is enabled)
             self._train_env = tf_py_environment.TFPyEnvironment(parallel_env, check_dims=True) 
             #instance of parallel environments
-            print('train_env.batch_size = parallel environment number = ', self._env_num)
         else:
             self._train_env = tf_py_environment.TFPyEnvironment(make_env(), check_dims=True)
+
+
         
 
     def set_agent(self):
@@ -310,29 +320,42 @@ class continous_RL_train:
             
         return tf.constant(new_attr,dtype=attr.dtype)
 
-def save_results(self, filefold, columns=[], is_outputfulldata = True):
-        """
-        Save the results of the genetic algorithm to a CSV file.
+    def save_results(self, filefold, para_columns=[], is_outputfulldata = True):
+            """
+            Save the results of the genetic algorithm to a CSV file.
 
-        """
-        if filefold is None:
-            raise ValueError("filefold cannot be None")
-        else:
-            if not os.path.exists(filefold): 
-                os.makedirs(filefold+ 'Data/')
+            """
+            if filefold is None:
+                raise ValueError("filefold cannot be None")
+            else:
+                if not os.path.exists(filefold+ 'Data/'): 
+                    os.makedirs(filefold+ 'Data/')
 
-        dims = cfg["env"]["state_dim"]
+            dims = cfg["env"]["state_dim"]
 
-        if not para_columns:
-            para_columns = [f'gene_{i}' for i in range(dims)]
+            if not para_columns:
+                para_columns = [f'dim_{i}' for i in range(dims)]
 
-        score_df = pd.DataFrame(self._final_reward_list, columns=['score'])
-        manip_df = pd.DataFrame(self._final_solution_list, columns=para_columns)
-        data_file_path = os.path.join(filefold, 'Data', f'Evo_Data_BestResults{datetime.now().strftime("%Y%m%d%H%M")}.csv')
+            score_df = pd.DataFrame(self._reward_list, columns=['score'])
+            manip_df = pd.DataFrame(self._solution_list, columns=para_columns)
+            data_file_path = os.path.join(filefold, 'Data', f'RL_Data_BestResults_{datetime.now().strftime("%Y%m%d%H%M")}.csv')
 
 
-        Evo_Data = pd.concat([score_df, manip_df], axis=1)
-        Evo_Data.to_csv(data_file_path, index=False)
+            RL_Data = pd.concat([score_df, manip_df], axis=1)
+            RL_Data.to_csv(data_file_path, index=False)
+
+            if is_outputfulldata:
+                # Save the full data collected during the evolution
+                self._REINFORCE_logs = np.array(self._REINFORCE_logs)
+                if self._REINFORCE_logs.size == 0:
+                    raise ValueError("No data collected during the evolution process.")
+                
+                # Create a DataFrame with the collected data
+                RL_Data_Full = pd.DataFrame(self._REINFORCE_logs, columns=['score'] + para_columns)
+                RL_Data_Full_Path = os.path.join(filefold, 'Data', f'RL_Data_FullResults_{datetime.now().strftime("%Y%m%d%H%M")}.csv')
+                RL_Data_Full.to_csv(RL_Data_Full_Path, index=False)
+
+            return RL_Data,RL_Data_Full
 
 
 class lr_schedule(tf.keras.optimizers.schedules.LearningRateSchedule):

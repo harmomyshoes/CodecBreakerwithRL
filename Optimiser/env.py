@@ -27,7 +27,7 @@ def compute_reward(state):
     return f(state)
 
 class Env_Discrete(py_environment.PyEnvironment):
-    def __init__(self, reward_fn: Callable[[np.ndarray], float]):
+    def __init__(self, reward_fn: Callable[[np.ndarray], float], sub_episode_length:int = 0):
         '''The function to initialize an Env obj.
         '''
         #Specify the requirement for the value of action, (It is a 2d-array for this case)
@@ -45,6 +45,10 @@ class Env_Discrete(py_environment.PyEnvironment):
         self._act_min   = np.array(env_cfg["act_min"], dtype=np.int32)
         self._act_max   = np.array(env_cfg["act_max"], dtype=np.int32)
         self._x0_reinforce = env_cfg["x0_reinforce"]
+        if sub_episode_length <= 0:
+            self._sub_episode_length = cfg["training"]["sub_episode_length"]
+        else:
+            self._sub_episode_length = sub_episode_length
         self._step_size = np.array(env_cfg["step_size"], dtype=np.float32)
 
         self._action_spec = array_spec.BoundedArraySpec(
@@ -60,6 +64,7 @@ class Env_Discrete(py_environment.PyEnvironment):
                                  shape=(self._state_dim,), dtype=np.float32, name='observation') #default max and min is None
         self._state = np.array(self._x0_reinforce,dtype=np.float32)
         #self.A = mat
+        self._disc_factor = np.float32(cfg["training"]["disc_factor"])
         self._episode_ended = False
         #stop_threshold is a condition for terminating the process for looking for the solution
         #self._stop_threshold = 0.01
@@ -84,7 +89,7 @@ class Env_Discrete(py_environment.PyEnvironment):
         #return ts.restart(observation=np.array(self._state, dtype=np.float32))
         return ts.TimeStep(step_type=StepType.FIRST, 
                            reward=initial_r, 
-                           discount=np.float32(cfg["training"]["disc_factor"]), 
+                           discount=np.float32(self._disc_factor), 
                            observation=np.array(self._state, dtype=np.float32)
                            )
     
@@ -126,7 +131,7 @@ class Env_Discrete(py_environment.PyEnvironment):
         #R = compute_reward(self._state)
         R = np.float32(self._reward_fn(self._state))
         #Set conditions for termination
-        if self._step_counter>=cfg["training"]["sub_episode_length"]-1:
+        if self._step_counter>=self._sub_episode_length-1:
             self._episode_ended = True  #value for t+1
 
         #Now we are at the end of time t, when self._episode_ended may have changed
@@ -138,15 +143,19 @@ class Env_Discrete(py_environment.PyEnvironment):
         else:
             #ts.transition(observation,reward,discount,outer_dims=None): Returns 
             #a TimeStep obj with step_type set to StepType.MID.
-            return ts.transition(np.array(self._state, dtype=np.float32), reward=R, discount=cfg["training"]["disc_factor"])
+            return ts.transition(np.array(self._state, dtype=np.float32), reward=R, discount=self._disc_factor)
 
 class Env_Continue(py_environment.PyEnvironment):
-    def __init__(self, reward_fn: Callable[[np.ndarray], float]):
+    def __init__(self, reward_fn: Callable[[np.ndarray], float], sub_episode_length:int = 0):
         env_cfg = cfg["env"]
         self._state_dim = env_cfg["state_dim"]
         self._act_min   = np.array(env_cfg["act_min"], dtype=np.float32)
         self._act_max   = np.array(env_cfg["act_max"], dtype=np.float32)
         self._x0_reinforce = env_cfg["x0_reinforce"]
+        if sub_episode_length <= 0:
+            self._sub_episode_length = cfg["training"]["sub_episode_length"]
+        else:
+            self._sub_episode_length = sub_episode_length
         '''The function to initialize an Env obj.
         '''
         #Specify the requirement for the value of action, (It is a 2d-array for this case)
@@ -167,6 +176,7 @@ class Env_Continue(py_environment.PyEnvironment):
         #self._stop_threshold = 0.01
         self._step_counter = 0
         self._reward_fn = reward_fn
+        self._disc_factor = np.float32(cfg["training"]["disc_factor"])
 
     def action_spec(self):
         #return the format requirement for action
@@ -187,7 +197,7 @@ class Env_Continue(py_environment.PyEnvironment):
         #return ts.restart(observation=np.array(self._state, dtype=np.float32))
         return ts.TimeStep(step_type=StepType.FIRST, 
                            reward=initial_r, 
-                           discount=np.float32(cfg["training"]["disc_factor"]), 
+                           discount=np.float32(self._disc_factor), 
                            observation=np.array(self._state, dtype=np.float32)
                            )
     
@@ -209,7 +219,8 @@ class Env_Continue(py_environment.PyEnvironment):
         Output.
         --------
         an TimeStep obj, TimeStep(step_type_{t+1}, R_{t+1}, discount_{t+1}, observation S_{t+1})
-        ''' 
+        '''
+
         # Suppose that we are at the beginning of time t 
         
         ################## --- Determine whether we should end the episode.
@@ -225,9 +236,10 @@ class Env_Continue(py_environment.PyEnvironment):
         ################# --- Compute R_{t+1}=R(S_t,A_t)
         R = np.float32(self._reward_fn(self._state))
         #Set conditions for termination
-        if self._step_counter>=cfg["training"]["sub_episode_length"]-1:
+        if self._step_counter>=self._sub_episode_length-1:
             self._episode_ended = True  #value for t+1
 
+ 
         #Now we are at the end of time t, when self._episode_ended may have changed
         if self._episode_ended:
             #if self._step_counter>100:
@@ -237,4 +249,4 @@ class Env_Continue(py_environment.PyEnvironment):
         else:
             #ts.transition(observation,reward,discount,outer_dims=None): Returns 
             #a TimeStep obj with step_type set to StepType.MID.
-            return ts.transition(np.array(self._state, dtype=np.float32), reward=R, discount=cfg["training"]["disc_factor"])
+            return ts.transition(np.array(self._state, dtype=np.float32), reward=R, discount=self._disc_factor)

@@ -12,7 +12,7 @@ CONFIG = {
     "training": {
         "final_reward": -1e9,
         "disc_factor": 1.0,
-        "generation_num": 30, #number of theta updates for REINFORCE-IP
+        "generation_num": 300, #number of theta updates for REINFORCE-IP
         "entropy_regularization": 0.05, 
         "gradient_clipping": 1.0,
         "sub_episode_length": 10, #number of time_steps in a sub-episode.
@@ -28,7 +28,7 @@ CONFIG = {
         "plot_every": 100, #number of episodes after which the training progress is plotted
     },
     "genetic_optimiser": {
-        "population_size": 30, ## equal to sub_episode_num_single_batch * sub_episode_length 
+        "population_size": 300, ## equal to sub_episode_num_single_batch * sub_episode_length 
         "num_generations": 30,
         "mutation_rate": 0.2,
         "parents_mating": 2,
