@@ -24,7 +24,7 @@ CONFIG = {
         "initial_lr": 0.0001, #initial learning rate for optimiser
         "lr_half_decay_steps": 50000, #number of steps after which learning rate is decayed to half
         "fc_layer_params_discrete": (30,15), #hidden layer sizes for the policy network
-        "fc_layer_params_continuous": (30,30,30), #hidden layer sizes for the value network
+        "fc_layer_params_continuous": (64,32,32), #hidden layer sizes for the value network
         "eval_every": 3, #number of episodes after which the policy is evaluated
         "plot_every": 100, #number of episodes after which the training progress is plotted
     },
@@ -66,7 +66,7 @@ def denormalize_action(a_norm, a_min = CONFIG["env"]["act_min"], a_max = CONFIG[
     # first to [0,1], then to [a_min, a_max]
     a_real = ((a_norm + 1.0) / 2.0) * (a_max - a_min) + a_min
     a_real = np.clip(a_real, a_min, a_max)
-    a_real = np.round(a_real, decimals=1)  # Round to 1 decimal places
+    a_real = np.round(a_real, decimals=2)  # Round to 2 decimal places
 
     # Final safeguard in case of floating‐point drift
     return a_real

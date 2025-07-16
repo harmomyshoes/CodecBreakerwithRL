@@ -82,7 +82,7 @@ class continous_RL_train:
         self._final_solution = cfg["env"]["x0_reinforce"].copy() #inital solution
         self._reward_list = [] #the best reward found so far
         self._solution_list = [] #the best solution found so far
-        self._REINFORCE_logs = [] #for logging the best objective value of the best solution among all the solutions used for one update of theta
+#        self._REINFORCE_logs = [] #for logging the best objective value of the best solution among all the solutions used for one update of theta
         #Learning Schedule = initial_lr * (C/(step+C))
         self._opt = tf.keras.optimizers.legacy.SGD(
             learning_rate=lr_schedule(initial_lr=train_cfg["initial_lr"], C=train_cfg["lr_half_decay_steps"]))
@@ -197,7 +197,7 @@ class continous_RL_train:
             #best_step_reward = f(best_solution)
             avg_step_reward = np.mean(batch_rewards[:,0:-1])
             self._reward_list.append(best_step_reward)
-            self._solution_list.append(best_step.numpy())
+            self._solution_list.append(denormalize_action(best_step.numpy()))
 
             # for each episode, pick its terminal (or any) step as “solution”:
             # batch_obs     = observations.numpy() 
@@ -206,7 +206,7 @@ class continous_RL_train:
             #     sol = batch_obs[ep_idx, -1, :]
             #     self._REINFORCE_logs.append([float(r), sol])
 
-            self._REINFORCE_logs.append((best_step_reward, avg_step_reward))
+            # self._REINFORCE_logs.append((best_step_reward, avg_step_reward))
 
             ###collecting the best solution and reward
             if self._final_reward is None or best_step_reward>self._final_reward: 
@@ -236,7 +236,7 @@ class continous_RL_train:
                 print('best_step_index:',best_step_index)
                 print(' ')
 
-        print('final_solution=',self._final_solution,'final_reward=',self._final_reward)
+        print('final_solution=',denormalize_action(self._final_solution),'final_reward=',self._final_reward)
 #        self._REINFORCE_logs = [max(self._REINFORCE_logs[0:i]) for i in range(1,update_num+1)] #rolling max  
     def set_environments(self, reward_fn: Callable[[np.ndarray, bool], float]):
         make_env = partial(Env,reward_fn = reward_fn, sub_episode_length=self._sub_episode_length)
