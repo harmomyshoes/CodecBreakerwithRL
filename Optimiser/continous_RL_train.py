@@ -25,6 +25,7 @@ from mpl_toolkits.mplot3d import axes3d
 from matplotlib.axes import Axes as ax
 import numpy as np
 import pandas as pd
+import os,gc
 from datetime import datetime
 import tensorflow as tf
 import tf_agents
@@ -35,7 +36,6 @@ from tf_agents.trajectories import time_step as ts
 from Optimiser.config import get_config, denormalize_action, normalize_action
 from Optimiser.env import Env_Continue as Env
 from Optimiser.custom_normal_projection_network import NormalProjectionNetwork
-import os,gc
 from typing import Callable
 from functools import partial
 
@@ -326,7 +326,7 @@ class continous_RL_train:
             
         return tf.constant(new_attr,dtype=attr.dtype)
 
-    def save_results(self, filefold, para_columns=[], is_outputfulldata = True):
+    def save_results(self, filefold, para_columns=[], is_outputfulldata = False):
             """
             Save the results of the genetic algorithm to a CSV file.
 
