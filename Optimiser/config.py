@@ -34,6 +34,10 @@ CONFIG = {
         "mutation_rate": 0.3,
         "parents_mating": 2,
         "step": [0.1, 0.1, 0.1, 1]
+    },
+    "mc_optimiser": {
+        "sampling_per_step": 30, ## equal to sub_episode_num_single_batch * sub_episode_length 
+        "total_step": 100,
     }
 }
 

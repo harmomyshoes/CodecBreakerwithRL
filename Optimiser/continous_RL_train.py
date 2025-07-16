@@ -360,8 +360,9 @@ class continous_RL_train:
                 RL_Data_Full = pd.DataFrame(self._REINFORCE_logs, columns=['score'] + para_columns)
                 RL_Data_Full_Path = os.path.join(filefold, 'Data', f'RL_Data_FullResults_{datetime.now().strftime("%Y%m%d%H%M")}.csv')
                 RL_Data_Full.to_csv(RL_Data_Full_Path, index=False)
-
-            return RL_Data,RL_Data_Full
+                return RL_Data,RL_Data_Full
+            else:
+                return RL_Data, None
 
 
 class lr_schedule(tf.keras.optimizers.schedules.LearningRateSchedule):
