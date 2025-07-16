@@ -69,10 +69,10 @@ class GeneticOptimiser:
         print(f"Fitness of the last best solution :", {best_fitness})
 
 
-    def set_fitnessfun(self, fitness_fn: Callable[[np.ndarray], float]):
+    def set_fitnessfun(self, fitness_fn: Callable[[np.ndarray], float], is_normalised: bool = False):
         def wrapped_reward_fn(ga_instance, solution, solution_idx):
             # 1) compute the score via the user’s raw reward fn
-            score = fitness_fn(solution)
+            score = fitness_fn(solution, is_normalised)
 
             # 2) build [score, *solution] and append to our log
             row = np.concatenate(([score], solution))

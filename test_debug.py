@@ -1,7 +1,7 @@
 import numpy as np
 import Optimiser.genetic_evo
 from Optimiser.genetic_evo import GeneticOptimiser
-import Optimiser.continous_RL_train
+import Optimiser.continous_RL_train_debug
 from Optimiser.continous_RL_train import continous_RL_train as CRLTrain
 
 def main():
@@ -11,7 +11,7 @@ def main():
     # GA_Opt.run(num_generations = 2)
     trainner = CRLTrain(sub_episode_length=5, sub_episode_num_single_batch=3, env_num=1)
     trainner.set_environments(f)
-    trainner.train(update_num=5, eval_intv=2)
+    trainner.train(update_num=5, eval_intv=1)
 
 m1=np.array([-0.5,-0.5,-0.5,-0.5])
 m2=np.array([0.5,0.5,0.5,0.5])
