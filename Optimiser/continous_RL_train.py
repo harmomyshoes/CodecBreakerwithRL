@@ -15,7 +15,7 @@ from tf_agents import replay_buffers as rb
 #import agent
 from tf_agents.agents.reinforce import reinforce_agent
 from tf_agents.utils import value_ops
-from tf_agents.trajectories import StepType
+from tf_agents.trajectories import StepType,time_step
 
 
 #other used packages
@@ -144,13 +144,24 @@ class continous_RL_train:
             step_types = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'step_type')
             discounts = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'discount')
 
+
             time_steps = ts.TimeStep(step_types,
                                     tf.zeros_like(rewards),
                                     tf.zeros_like(discounts),
                                     observations
                                     )
+            rewards_sum = tf.reduce_sum(rewards, axis=1) #shape=(sub_episode_num,)           
+
+            # count LASTs per sub-episode#################Counting is somethings lost
+            # is_last = step_types == time_step.StepType.LAST
+            # last_counts = tf.reduce_sum(tf.cast(is_last, tf.int32), axis=1)  # shape [sub_episode_num]
+
+            # print("Per-episode LAST counts:", last_counts.numpy())
+            # # You should see all ones, and len(last_counts)=sub_episode_num
+            # print("Total episodes collected:", int(tf.reduce_sum(last_counts).numpy()))
+            ###############################################
             
-            rewards_sum = tf.reduce_sum(rewards, axis=1) #shape=(sub_episode_num,)
+
             
             with tf.GradientTape() as tape:
                 #trainable parameters in the actor_network in REINFORCE_agent

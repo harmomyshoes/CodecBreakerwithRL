@@ -87,7 +87,8 @@ class GeneticOptimiser:
     def run(self, num_generations = 0,
             num_genes = 0,
             sol_per_pop = 0,
-            preset_population = []):
+            preset_population = [],
+            parallel_processing = None):
         
         if num_generations == 0:
             num_generations = self._num_generations
@@ -113,7 +114,7 @@ class GeneticOptimiser:
                             keep_elitism = 1,
                             save_best_solutions = True,
                             save_solutions = True,
-                            parallel_processing = None)
+                            parallel_processing = parallel_processing)
         self._ga_instance.run()
 
     def plot_results(self):
