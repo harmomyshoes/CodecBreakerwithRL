@@ -82,7 +82,7 @@ class continous_RL_train:
         self._final_solution = cfg["env"]["x0_reinforce"].copy() #inital solution
         self._reward_list = [] #the best reward found so far
         self._solution_list = [] #the best solution found so far
-#        self._REINFORCE_logs = [] #for logging the best objective value of the best solution among all the solutions used for one update of theta
+        self._REINFORCE_logs = [] #for logging the best objective value of the best solution among all the solutions used for one update of theta
         #Learning Schedule = initial_lr * (C/(step+C))
         self._opt = tf.keras.optimizers.legacy.SGD(
             learning_rate=lr_schedule(initial_lr=train_cfg["initial_lr"], C=train_cfg["lr_half_decay_steps"]))
@@ -200,49 +200,56 @@ class continous_RL_train:
 
             ###collecting the key information for the training process
             batch_rewards = rewards.numpy()
+            batch_obs = observations.numpy()
             
             batch_rewards[:,-1] = -np.power(10,8) #The initial reward is set as 0, we set it as this value to not affect the best_obs_index 
             best_step_reward = np.max(batch_rewards)
             best_step_index = [int(batch_rewards.argmax()/self._sub_episode_length),batch_rewards.argmax()%self._sub_episode_length+1]
-            best_step = observations[best_step_index[0],best_step_index[1],:] #best solution
+            best_step = batch_obs[best_step_index[0],best_step_index[1],:] #best solution
+            ###The observation structure is [sub_episode_num, sub_episode_length, state_dim]
             #best_step_reward = f(best_solution)
             avg_step_reward = np.mean(batch_rewards[:,0:-1])
             self._reward_list.append(best_step_reward)
-            self._solution_list.append(denormalize_action(best_step.numpy()))
+            self._solution_list.append(denormalize_action(best_step))
 
-            # for each episode, pick its terminal (or any) step as “solution”:
-            # batch_obs     = observations.numpy() 
-            # for ep_idx, r in enumerate(batch_rewards):
-            #     # pick last observation of that episode:
-            #     sol = batch_obs[ep_idx, -1, :]
-            #     self._REINFORCE_logs.append([float(r), sol])
+            for ep_idx in range(self._sub_episode_num-1):
+                ep_reward   = batch_rewards[ep_idx,0:-1] #get the reward of the sub-episode, excluding the last time step
+                # pick final-step observation as the “solution” for that episode:
+                ep_solution = denormalize_action(batch_obs[ep_idx, 1:, :])       
+                
+                self._REINFORCE_logs.append({
+                    'update':   n,           # which generation
+                    'episode':  ep_idx,      # which sub-episode
+                    'reward':   ep_reward,
+                    'solution': ep_solution, # numpy array of shape (state_dim,)
+                })
 
-            # self._REINFORCE_logs.append((best_step_reward, avg_step_reward))
 
             ###collecting the best solution and reward
             if self._final_reward is None or best_step_reward>self._final_reward: 
                 print("final reward before udpate:",self._final_reward)
                 self._final_reward = best_step_reward
-                self._final_solution = best_step.numpy()
+                self._final_solution = best_step
                 print("final reward after udpate:",self._final_reward)
                 print('updated final_solution=', denormalize_action(self._final_solution))
 
             #print(compute_reward(best_obs,alpha))
             if n%eval_intv==0:
                 print("train_step no.=",self._train_step_num)
-                print('best_solution of this generation=', denormalize_action(best_step.numpy()))
+                print('best_solution of this generation=', denormalize_action(best_step))
                 print('best step reward=',best_step_reward)
                 print('avg step reward=', avg_step_reward)
+                print('final_solution=', denormalize_action(self._final_solution), 'final_reward=', self._final_reward)
                 #print('episode of rewards', rewards.round(3))
                 print('act_std:', denormalize_action(actions_distribution.stddev()[0,0].numpy()))
                 print('act_mean:', denormalize_action(actions_distribution.mean()[0,0].numpy())) #second action mean
 
                 ####print out the observations
-                flat_obs = tf.reshape(observations, [-1, self._state_dim])
+                flat_obs = tf.reshape(batch_obs, [-1, self._state_dim])
                 obs_mean = tf.reduce_mean(flat_obs, axis=0)
-                print('obs_mean:', denormalize_action(obs_mean.numpy()))
+                print('obs_mean:', denormalize_action(obs_mean))
                 obs_std  = tf.sqrt(tf.reduce_mean((flat_obs - obs_mean)**2, axis=0))
-                print('obs_std:', denormalize_action(obs_std.numpy()))
+                print('obs_std:', denormalize_action(obs_std))
 
                 print('best_step_index:',best_step_index)
                 print(' ')
@@ -368,10 +375,25 @@ class continous_RL_train:
                     raise ValueError("No data collected during the evolution process.")
                 
                 # Create a DataFrame with the collected data
-                RL_Data_Full = pd.DataFrame(self._REINFORCE_logs, columns=['score'] + para_columns)
                 RL_Data_Full_Path = os.path.join(filefold, 'Data', f'RL_Data_FullResults_{datetime.now().strftime("%Y%m%d%H%M")}.csv')
+
+                rows = []
+                for rec in self._REINFORCE_logs:
+                    for t, r in enumerate(rec['reward']):
+                        sol = rec['solution'][t]
+                        row = {
+                            'update': rec['update'],
+                            'episode': rec['episode'],
+                            'timestep': t,
+                            'reward': r,
+                        }
+                        for label, val in zip(para_columns, sol):
+                            row[label] = val
+
+                        rows.append(row)
+                RL_Data_Full = pd.DataFrame(rows)
                 RL_Data_Full.to_csv(RL_Data_Full_Path, index=False)
-                return RL_Data,RL_Data_Full
+                return RL_Data,RL_Data_Full             
             else:
                 return RL_Data, None
 

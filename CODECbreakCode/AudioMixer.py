@@ -31,10 +31,33 @@ class FullTrackAudioMixer:
             self.GetLoudnessLevel(self.Inital_V_Data, self.Inital_D_Data, self.Inital_B_Data, self.Inital_O_Data, self.SampleRate)
             print("Mixing File Load Sucessful")
 
+
     def EraseTheMp3Mixing(self):
-        shutil.rmtree(self.Foldpath + "/Mixing_Result/")
-        shutil.rmtree(self.Foldpath + "/Mixing_Result_Mp3/")
-        shutil.rmtree(self.Foldpath + "/Mixing_Result_Mp3_Wav/")
+        """
+        Remove all files and subdirectories in the given mixing-result directories.
+        """
+        # List of directories to clear
+        dirs_to_empty = [
+            os.path.join(self.Foldpath, "Mixing_Result"),
+            os.path.join(self.Foldpath, "Mixing_Result_Mp3"),
+            os.path.join(self.Foldpath, "Mixing_Result_Mp3_Wav"),
+        ]
+
+        for directory_to_empty in dirs_to_empty:
+            if os.path.exists(directory_to_empty) and os.path.isdir(directory_to_empty):
+                # Iterate over all items (files and subdirectories)
+                for item in os.listdir(directory_to_empty):
+                    item_path = os.path.join(directory_to_empty, item)
+                    try:
+                        if os.path.isfile(item_path) or os.path.islink(item_path):
+                            os.remove(item_path)
+                        elif os.path.isdir(item_path):
+                            shutil.rmtree(item_path)
+                    except Exception as e:
+                        print(f"Error removing {item_path}: {e}")
+                print(f"Cleared all contents in '{directory_to_empty}'.")
+            else:
+                print(f"Directory '{directory_to_empty}' does not exist or is not a directory.")
 
 
     def LoadTrack(self,foldpath, isMONO, StartingTime, Duration):
@@ -578,9 +601,32 @@ class SingleFileAudioMixer:
         return mixing_data,mixing_sr,isMONO
     
     def EraseTheMp3Mixing(self):
-        shutil.rmtree(self.Foldpath + "/Mixing_Result/")
-        shutil.rmtree(self.Foldpath + "/Mixing_Result_Mp3/")
-        shutil.rmtree(self.Foldpath + "/Mixing_Result_Mp3_Wav/")
+        """
+        Remove all files and subdirectories in the given mixing-result directories.
+        """
+        # List of directories to clear
+        dirs_to_empty = [
+            os.path.join(self.Foldpath, "Mixing_Result"),
+            os.path.join(self.Foldpath, "Mixing_Result_Mp3"),
+            os.path.join(self.Foldpath, "Mixing_Result_Mp3_Wav"),
+        ]
+
+        for directory_to_empty in dirs_to_empty:
+            if os.path.exists(directory_to_empty) and os.path.isdir(directory_to_empty):
+                # Iterate over all items (files and subdirectories)
+                for item in os.listdir(directory_to_empty):
+                    item_path = os.path.join(directory_to_empty, item)
+                    try:
+                        if os.path.isfile(item_path) or os.path.islink(item_path):
+                            os.remove(item_path)
+                        elif os.path.isdir(item_path):
+                            shutil.rmtree(item_path)
+                    except Exception as e:
+                        print(f"Error removing {item_path}: {e}")
+                print(f"Cleared all contents in '{directory_to_empty}'.")
+            else:
+                print(f"Directory '{directory_to_empty}' does not exist or is not a directory.")
+
 
     def TestNoisedOnlyFile(self,file_Manipul_list, outputfilename):
         GaussianNoiseValue = file_Manipul_list[0]
