@@ -368,7 +368,9 @@ class continous_RL_train_PPO:
                     value_net = value_net,
                     importance_ratio_clipping= 0.2,
                     entropy_regularization = 0.0,
-                    num_epochs=10,
+                    num_epochs=25, ### turning to the default value
+                    use_gae= False, ###ultilise the GAE
+                    use_td_lambda_return= False,###ultilise the Lamda return
                     train_step_counter = train_step
                     )
 

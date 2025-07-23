@@ -1,4 +1,5 @@
 from audiomentations import Gain,Normalize,LoudnessNormalization,AddGaussianSNR,Limiter,ClippingDistortion
+from CODECbreakCode.compressor_qmul import Compressor
 import numpy as np
 from numpy.typing import NDArray
 from cylimiter import Limiter as CLimiter
@@ -170,6 +171,33 @@ def AddingClippingDistortionWithFlatoing(vocal_data, drum_data, bass_data, other
         other_data = ClippingDistortionWithFloatingThreshold(other_data, srate, manipulation_list[3])
     return vocal_data,drum_data,bass_data,other_data,srate
 
+
+
+
+def DynCompressor_Trans_FullPara(vocal_data, drum_data, bass_data, other_data, srate, manipulation_list):
+        v_param = manipulation_list[0:4]
+        d_param = manipulation_list[4:8]
+        b_param = manipulation_list[8:12]
+        o_param = manipulation_list[12:16]
+        makeup_gain=0.0
+        knee_width=1.0
+        if v_param is None or d_param is None or b_param is None or o_param is None:
+            raise ValueError("Missing compressor parameters.")
+       #     return null, srrate
+
+        for lst, indices in ((v_param, (1,2,3)), (d_param, (1,2,3)), (b_param, (1,2,3)), (o_param, (1,2,3))):
+            for i in indices:
+                lst[i] = lst[i] or 1
+
+        V_compressor = Compressor(threshold = v_param[0],ratio=v_param[1],attack=v_param[2],release=v_param[3],makeup_gain=makeup_gain,knee_width=knee_width,sample_rate=srate,)
+        vocal_data = V_compressor(vocal_data)
+        D_compressor = Compressor(threshold = d_param[0],ratio=d_param[1],attack=d_param[2],release=d_param[3],makeup_gain=makeup_gain,knee_width=knee_width,sample_rate=srate,)
+        drum_data = D_compressor(drum_data)
+        B_compressor = Compressor(threshold = b_param[0],ratio=b_param[1],attack=b_param[2],release=b_param[3],makeup_gain=makeup_gain,knee_width=knee_width,sample_rate=srate,)
+        bass_data = B_compressor(bass_data)
+        O_compressor = Compressor(threshold = o_param[0],ratio=o_param[1],attack=o_param[2],release=o_param[3],makeup_gain=makeup_gain,knee_width=knee_width,sample_rate=srate,)
+        other_data = O_compressor(other_data)
+        return vocal_data,drum_data,bass_data,other_data,srate
 
 
 def Dynamic_Transform_FullPara(vocal_data, drum_data, bass_data, other_data, srate, manipulation_list,attac_time=0.0003,reles_time=0.05):
