@@ -124,7 +124,7 @@ class GeneticOptimiser:
         plt.title('Genetic Algorithm Optimization Progress')
         plt.show()
 
-    def save_results(self, filefold, genre_columns=[], is_outputfulldata = True):
+    def save_results(self, filefold, para_columns=[], is_outputfulldata = True):
         """
         Save the results of the genetic algorithm to a CSV file.
 

@@ -4,11 +4,15 @@ import numpy as np
 
 CONFIG = {
     "env": {
-        "state_dim": 16,
-        "act_min": [-30.0,  1.0,  1.0, 100.0,-30.0,  1.0,  1.0, 100.0,-30.0,  1.0,  1.0, 100.0,-30.0,  1.0,  1.0, 100.0],
-        "act_max": [0.0, 10.0, 20.0, 500.0,0.0, 10.0, 20.0, 500.0,0.0, 10.0, 20.0, 500.0,0.0, 10.0, 20.0, 500.0],
-        "x0_reinforce": [0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0],
-        "step_size": [0.1, 0.1, 0.1, 0.01],
+       "state_dim": 16,
+       "act_min": [-30.0,  1.0,  1.0, 100.0,-30.0,  1.0,  1.0, 100.0,-30.0,  1.0,  1.0, 100.0,-30.0,  1.0,  1.0, 100.0],
+       "act_max": [0.0, 10.0, 20.0, 500.0,0.0, 10.0, 20.0, 500.0,0.0, 10.0, 20.0, 500.0,0.0, 10.0, 20.0, 500.0],
+       "x0_reinforce": [0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0],
+        # "state_dim": 4,#for the sack of PPO test 
+        # "act_min": [-30.0,  1.0,  1.0, 100.0], #for the sack of PPO test 
+        # "act_max": [0.0, 10.0, 20.0, 500.0],#for the sack of PPO test
+        # "x0_reinforce": [0.0, 0.0, 0.0, 0.0],#for the sack of PPO test
+        # "step_size": [0.1, 0.1, 0.1, 0.01],
     },
     "training": {
         "final_reward": -1e9,
@@ -24,7 +28,8 @@ CONFIG = {
         "initial_lr": 0.0001, #initial learning rate for optimiser
         "lr_half_decay_steps": 50000, #number of steps after which learning rate is decayed to half
         "fc_layer_params_discrete": (30,15), #hidden layer sizes for the policy network
-        "fc_layer_params_continuous": (64,32,32), #hidden layer sizes for the value network
+        "fc_layer_params_continuous_crtic_net": (64,64), #hidden layer sizes for the critic network
+        "fc_layer_params_continuous_actor_net": (64,64,64), #hidden layer sizes for the value network        
         "eval_every": 3, #number of episodes after which the policy is evaluated
         "plot_every": 100, #number of episodes after which the training progress is plotted
     },
@@ -33,7 +38,7 @@ CONFIG = {
         "num_generations": 200,
         "mutation_rate": 0.3,
         "parents_mating": 2,
-        "step": [0.1, 0.1, 0.1, 1]
+        "step": [0.01, 0.01, 0.01, 0.1,0.01, 0.01, 0.01, 0.1,0.01, 0.01, 0.01, 0.1,0.01, 0.01, 0.01, 0.1,]
     },
     "mc_optimiser": {
         "sampling_per_step": 30, ## equal to sub_episode_num_single_batch * sub_episode_length 

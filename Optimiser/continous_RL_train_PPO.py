@@ -85,11 +85,11 @@ class continous_RL_train_PPO:
         self._solution_list = [] #the best solution found so far
         self._REINFORCE_logs = [] #for logging the best objective value of the best solution among all the solutions used for one update of theta
         #Learning Schedule = initial_lr * (C/(step+C))
-        self._opt = tf.keras.optimizers.legacy.SGD(
+        self._opt = tf.keras.optimizers.SGD(
             learning_rate=lr_schedule(initial_lr=train_cfg["initial_lr"], C=train_cfg["lr_half_decay_steps"]))
         self._state_dim = cfg["env"]["state_dim"] #dimension of the state space
 
-    def PPO_train(self, update_num=0, eval_intv=0):
+    def train(self, update_num=0, eval_intv=0):
         self.set_agent()
         """
         Main function for training the agent.
@@ -139,128 +139,27 @@ class continous_RL_train_PPO:
 
             # 2) grab the Trajectory
             experience = replay_buffer.gather_all()
-
-            # 3) let the agent do its own loss‐compute + apply_gradients
-            loss_info = self._REINFORCE_agent.train(experience)
-
-            # 4) clear for the next iteration
-            replay_buffer.clear()
-
-            # 5) grab metrics off loss_info (e.g. loss_info.loss, loss_info.extra)
-            print(f"[step {n}] loss = {loss_info.loss:.3f}")
-            
-    
-    def train(self, update_num=0, eval_intv=0):
-        """
-        Main function for training the agent.
-        It sets up the environment, agent, and runs the training loop.
-        """
-        #self.set_environments()
-        self.set_agent()
-        #################
-        #replay_buffer is used to store policy exploration data
-        #################
-        replay_buffer = rb.TFUniformReplayBuffer(
-                        data_spec = self._REINFORCE_agent.collect_data_spec,  # describe spec for a single iterm in the buffer. A TensorSpec or a list/tuple/nest of TensorSpecs describing a single item that can be stored in this buffer.
-                        batch_size = self._env_num,    # number of parallel worlds, where in each world there is an agent generating trajectories
-                                                # One batch corresponds to one parallel environment
-                        max_length = self._episode_length*5    # The maximum number of items that can be stored in a single batch segment of the buffer.     
-                                                            # if exceeding this number previous trajectories will be dropped
-        )
-
-
-
-        #A driver uses an agent to perform its policy in the environment.
-        #The trajectory is saved in replay_buffer
-        collect_driver = DynamicEpisodeDriver(
-                                                env = self._train_env, #train_env contains parallel environments (no.: env_num)
-                                                policy = self._REINFORCE_agent.collect_policy,
-                                                observers = [replay_buffer.add_batch],
-                                                num_episodes = self._sub_episode_num   #SUM_i (number of episodes to be performed in the ith parallel environment)
-                                            )
-
-
-
-
-        ####Examine on the update number and interval
-        if update_num == 0:
-            update_num = train_cfg["generation_num"]
-
-        if eval_intv == 0:
-            eval_intv = train_cfg["eval_every"]
-        
-
-        print(f"update_num: {update_num}, eval_intv: {eval_intv}")
-        tf.random.set_seed(0)
-
-
-        for n in range(0,update_num):
-            #Generate Trajectories
-            replay_buffer.clear()
-            collect_driver.run()  #a batch of trajectories will be saved in replay_buffer
-            
-            experience = replay_buffer.gather_all() #get the batch of trajectories, shape=(batch_size, episode_length)
             rewards = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'reward') #shape=(sub_episode_num, sub_episode_length)
             observations = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'observation') #shape=(sub_episode_num, sub_episode_length, state_dim)
             actions = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'action') #shape=(sub_episode_num, sub_episode_length, state_dim)
             step_types = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'step_type')
             discounts = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'discount')
-
-
             time_steps = ts.TimeStep(step_types,
-                                    tf.zeros_like(rewards),
-                                    tf.zeros_like(discounts),
-                                    observations
-                                    )
-            rewards_sum = tf.reduce_sum(rewards, axis=1) #shape=(sub_episode_num,)           
-
-            # count LASTs per sub-episode#################Counting is somethings lost
-            # is_last = step_types == time_step.StepType.LAST
-            # last_counts = tf.reduce_sum(tf.cast(is_last, tf.int32), axis=1)  # shape [sub_episode_num]
-
-            # print("Per-episode LAST counts:", last_counts.numpy())
-            # # You should see all ones, and len(last_counts)=sub_episode_num
-            # print("Total episodes collected:", int(tf.reduce_sum(last_counts).numpy()))
-            ###############################################
-            
-
-            
-            with tf.GradientTape() as tape:
-                #trainable parameters in the actor_network in REINFORCE_agent
-                #variables_to_train = self._REINFORCE_agent._actor_network.trainable_weights
-                variables_to_train = self._REINFORCE_agent.actor_net.trainable_variables
-
-                ###########Compute J_loss = -J
-                actions_distribution = self._REINFORCE_agent.collect_policy.distribution(
+                        tf.zeros_like(rewards),
+                        tf.zeros_like(discounts),
+                        observations
+                        )
+            actions_distribution = self._REINFORCE_agent.collect_policy.distribution(
                                     time_steps, policy_state=None).action
+            # 3) let the agent do its own loss‐compute + apply_gradients
+            loss_info = self._REINFORCE_agent.train(experience)
             
-                
-                ######Entropy trace during “burn-in”, Watch the policy’s entropy during the very first few updates
-                ent = actions_distribution.entropy().numpy()   # shape = (batch_size, state_dim)
-                print(f"[step {n:3d}] mean entropy per-dim = {ent.mean():.4f}")
-                #######
+
+            # 5) grab metrics off loss_info (e.g. loss_info.loss, loss_info.extra)
+            print(f"Epoch {n}: policy_loss={loss_info.extra.policy_gradient_loss.numpy():.3f}"
+                f"  value_loss={loss_info.extra.value_estimation_loss:.3f}"
+                f"  entropy_loss={loss_info.extra.entropy_regularization_loss:.3f}")
             
-                #log(pi(action|state)), shape = (batch_size, epsode_length)
-                action_log_prob = common.log_probability(actions_distribution, 
-                                                        actions,
-                                                        self._REINFORCE_agent.action_spec)
-
-                J = tf.reduce_sum(tf.reduce_sum(action_log_prob,axis=1)*rewards_sum)/self._sub_episode_num
-
-                ###########Compute regularization loss from actor_net params
-                regu_term = tf.reduce_sum(variables_to_train[0]**2)
-                num = len(variables_to_train) #number of vectors in variables_to_train
-                for i in range(1,num):
-                    regu_term += tf.reduce_sum(variables_to_train[i]**2)
-                
-                total = -J + train_cfg["param_alpha"]*regu_term
-            
-            #update parameters in the actor_network in the policy
-            grads = tape.gradient(total, variables_to_train)
-            grads_and_vars = list(zip(grads, variables_to_train))
-            self._opt.apply_gradients(grads_and_vars=grads_and_vars)
-            self._train_step_num += 1
-
             ###collecting the key information for the training process
             batch_rewards = rewards.numpy()
             batch_obs = observations.numpy()
@@ -316,9 +215,12 @@ class continous_RL_train_PPO:
 
                 print('best_step_index:',best_step_index)
                 print(' ')
+                
+            self._train_step_num += 1
 
         print('final_solution=',denormalize_action(self._final_solution),'final_reward=',self._final_reward)
-#        self._REINFORCE_logs = [max(self._REINFORCE_logs[0:i]) for i in range(1,update_num+1)] #rolling max  
+            
+    
     def set_environments(self, reward_fn: Callable[[np.ndarray, bool], float]):
         make_env = partial(Env,reward_fn = reward_fn, sub_episode_length=self._sub_episode_length)
         print('train_env.batch_size = parallel environment number = ', self._env_num)        
@@ -342,7 +244,7 @@ class continous_RL_train_PPO:
         actor_net = actor_distribution_network.ActorDistributionNetwork(   
                                                 self._train_env.observation_spec(),
                                                 self._train_env.action_spec(),
-                                                fc_layer_params=(64,64), #Hidden layers
+                                                fc_layer_params=train_cfg["fc_layer_params_continuous_actor_net"], #Hidden layers
                                                 seed=0, #seed used for Keras kernal initializers for NormalProjectionNetwork.
                                                 #discrete_projection_net=_categorical_projection_net
                                                 activation_fn = tf.math.tanh,
@@ -355,7 +257,7 @@ class continous_RL_train_PPO:
                                                 # in time of 17/7, in this way to let the prediction of seperate in different dimensions
                                                 )
         value_net=ValueNetwork(self._train_env.observation_spec(),
-                                    fc_layer_params=(64,64), #Hidden layers
+                                    fc_layer_params=train_cfg["fc_layer_params_continuous_crtic_net"], #Hidden layers
                                     activation_fn = tf.math.tanh)
 
         #train_step_counter = tf.Variable(0)
@@ -468,6 +370,7 @@ class continous_RL_train_PPO:
 class lr_schedule(tf.keras.optimizers.schedules.LearningRateSchedule):
     def __init__(self, initial_lr, C):
         self.initial_learning_rate = initial_lr
-        self.C = C
+        self.C = tf.constant(C, dtype=tf.float32)
     def __call__(self, step):
+        step = tf.cast(step, tf.float32)
         return self.initial_learning_rate*self.C/(self.C+step)
