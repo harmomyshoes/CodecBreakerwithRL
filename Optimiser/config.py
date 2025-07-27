@@ -25,11 +25,14 @@ CONFIG = {
         "env_num": 1,
         "alpha": 0.2, #regularization coefficient
         "param_alpha": 0.15,
-        "initial_lr": 0.0001, #initial learning rate for optimiser
+ #       "initial_lr": 0.0001, #initial learning rate for optimiser
+        "initial_lr": 0.001, ###FOR Stress test
+       "importance_ratio_clipping": 0.15,###The value regulate the PPO policy update range
+ #       "importance_ratio_clipping": 0.05,###FOR Stress test
         "lr_half_decay_steps": 50000, #number of steps after which learning rate is decayed to half
         "fc_layer_params_discrete": (30,15), #hidden layer sizes for the policy network
         "fc_layer_params_continuous_crtic_net": (64,64), #hidden layer sizes for the critic network
-        "fc_layer_params_continuous_actor_net": (64,64,64), #hidden layer sizes for the value network        
+        "fc_layer_params_continuous_actor_net": (128,128,128), #hidden layer sizes for the value network        
         "eval_every": 3, #number of episodes after which the policy is evaluated
         "plot_every": 100, #number of episodes after which the training progress is plotted
     },
