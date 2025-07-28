@@ -449,7 +449,52 @@ class FullTrackAudioMixer:
         MixingFile = self.OutputMixingFile(mixing_data, srate, filename)
 #        Sccore = self.MeasureOutputs(MixingFile, 96)
         return MixingFile
-    
+
+    #the Function change all the parameters, with limiter
+    # the Strture of the Manipulation Matrix[vocal_gaussian, vocal_dis, vocal_limiter_1,vocal_limiter_2 
+    # drum_gaussian, drum_dis, drum_limiter_1, drum_limiter_2 ,bass_gaussian, bass_dis, bass_limiter_1,bass_limiter_2,
+    # other_gaussian, other_dis, other_limiter_1,other_limiter_2]
+    def TestDynNoisedFullTrack(self,full_Manipul_list,filename,isNormalised=True, isCompensated=False):
+        GaussianNoiseList = [full_Manipul_list[0],full_Manipul_list[6],full_Manipul_list[12],full_Manipul_list[18]]
+        DistortionPercentList = [full_Manipul_list[1],full_Manipul_list[7],full_Manipul_list[13],full_Manipul_list[19]]
+        DynparameterList = full_Manipul_list[2:6]+full_Manipul_list[8:12]+full_Manipul_list[14:18]+full_Manipul_list[20:24]
+#        print(f"DynamicList is {DynparameterList}")
+
+        vocal_data = self.Inital_V_Data
+        drum_data = self.Inital_D_Data
+        bass_data = self.Inital_B_Data
+        other_data = self.Inital_O_Data
+        v_sr = self.SampleRate
+        
+#        vocal_data,drum_data,bass_data,other_data,v_sr = NoiseEvalEffect.Dynamic_Transform(vocal_data, drum_data, bass_data, other_data, v_sr, IThresholdLevelList)
+        #print("DynamicChange is done")
+        vocal_data,drum_data,bass_data,other_data,v_sr = NoiseEffect.AddingGaussianNoise(vocal_data, drum_data, bass_data, other_data, v_sr,GaussianNoiseList)
+        #print("GuassianNoise is done")
+        vocal_data,drum_data,bass_data,other_data,v_sr = NoiseEffect.AddingClippingDistortionWithFlatoing(vocal_data, drum_data, bass_data, other_data,v_sr,DistortionPercentList)
+        #print("ClippingNoise is done")
+        vocal_data,drum_data,bass_data,other_data,v_sr = NoiseEffect.DynCompressor_Trans_FullPara(vocal_data, drum_data, bass_data, other_data, v_sr, DynparameterList)
+        #print("DynamicChange is done")
+        #mixing_data,srate = self.MixingAudio(vocal_data, drum_data, bass_data, other_data, v_sr)
+        pre_mixing_data = vocal_data+drum_data+bass_data+other_data
+        """Output some key information"""
+        print(f"The mixing ouput in the RMS, Vocal: {round(NEUtil.calculate_rms_dB(vocal_data),2)}dB, Clipping Ratio&Cliped Num: {NEUtil.calcaulate_cliped_samples(vocal_data)}")
+        print(f"The mixing ouput in the RMS, Drum: {round(NEUtil.calculate_rms_dB(drum_data),2)}dB, Clipping Ratio&Cliped Num: {NEUtil.calcaulate_cliped_samples(drum_data)}")
+        print(f"The mixing ouput in the RMS, Bass: {round(NEUtil.calculate_rms_dB(bass_data),2)}dB, Clipping Ratio&Cliped Num: {NEUtil.calcaulate_cliped_samples(bass_data)}")
+        print(f"The mixing ouput in the RMS, Other: {round(NEUtil.calculate_rms_dB(other_data),2)}dB, Clipping Ratio&Cliped Num: {NEUtil.calcaulate_cliped_samples(other_data)}")
+        self.TrackRMS = [round(NEUtil.calculate_rms_dB(vocal_data),2),round(NEUtil.calculate_rms_dB(drum_data),2),round(NEUtil.calculate_rms_dB(bass_data),2),round(NEUtil.calculate_rms_dB(other_data),2)]
+        self.MixingRMS_BeforeFinalMix = round(NEUtil.calculate_rms_dB(pre_mixing_data),2)
+
+
+        print(f"The pre-mixing ouput(no Normalize, no -14 LUFS) in the RMS, Total: {round(NEUtil.calculate_rms_dB(pre_mixing_data),2)}dB, Clipping Ratio&Cliped Num: {NEUtil.calcaulate_cliped_samples(pre_mixing_data)}")
+        print(f"It is {'Noramalized' if isNormalised else 'Unormailzed'} on each track when mixing")
+        """End of Output some key information"""
+
+        mixing_data,srate = self.MixingAudio(vocal_data, drum_data, bass_data, other_data, v_sr, isNormalised,isCompensated)
+        
+        MixingFile = self.OutputMixingFile(mixing_data, srate, filename)
+#        Sccore = self.MeasureOutputs(MixingFile, 96)
+        return MixingFile
+        
     def TestDynCompTrack(self,Manipul_list,filename,isNormalised=True, isCompensated=False):
  #       IThresholdLevelList =[full_Manipul_list[2],full_Manipul_list[6],full_Manipul_list[10],full_Manipul_list[14]]
         CompList = Manipul_list
@@ -480,46 +525,7 @@ class FullTrackAudioMixer:
         MixingFile = self.OutputMixingFile(mixing_data, srate, filename)
 #        Sccore = self.MeasureOutputs(MixingFile, 96)
         return MixingFile
-    
-    def TestNoisedandCompFullTrack(self,full_Manipul_list,filename,isNormalised=True, isCompensated=False):
-        GaussianNoiseList = [full_Manipul_list[0],full_Manipul_list[3],full_Manipul_list[6],full_Manipul_list[9]]
-        DistortionPercentList = [full_Manipul_list[1],full_Manipul_list[4],full_Manipul_list[7],full_Manipul_list[10]]
- #       IThresholdLevelList =[full_Manipul_list[2],full_Manipul_list[6],full_Manipul_list[10],full_Manipul_list[14]]
-        CompList = [full_Manipul_list[2:6],full_Manipul_list[5],full_Manipul_list[8],full_Manipul_list[11]]
-        vocal_data = self.Inital_V_Data
-        drum_data = self.Inital_D_Data
-        bass_data = self.Inital_B_Data
-        other_data = self.Inital_O_Data
-        v_sr = self.SampleRate
-        
-#        vocal_data,drum_data,bass_data,other_data,v_sr = NoiseEvalEffect.Dynamic_Transform(vocal_data, drum_data, bass_data, other_data, v_sr, IThresholdLevelList)
-        #print("DynamicChange is done")
-        vocal_data,drum_data,bass_data,other_data,v_sr = NoiseEffect.AddingGaussianNoise(vocal_data, drum_data, bass_data, other_data, v_sr,GaussianNoiseList)
-        #print("GuassianNoise is done")
-        vocal_data,drum_data,bass_data,other_data,v_sr = NoiseEffect.AddingClippingDistortionWithFlatoing(vocal_data, drum_data, bass_data, other_data,v_sr,DistortionPercentList)
-        #print("ClippingNoise is done")
-        vocal_data,drum_data,bass_data,other_data,v_sr = NoiseEffect.Dynamic_Transform_FullPara(vocal_data, drum_data, bass_data, other_data, v_sr, IIThresholdLevelList)
-        #print("DynamicChange is done")
-        #mixing_data,srate = self.MixingAudio(vocal_data, drum_data, bass_data, other_data, v_sr)
-        pre_mixing_data = vocal_data+drum_data+bass_data+other_data
-        """Output some key information"""
-        print(f"The mixing ouput in the RMS, Vocal: {round(NEUtil.calculate_rms_dB(vocal_data),2)}dB, Clipping Ratio&Cliped Num: {NEUtil.calcaulate_cliped_samples(vocal_data)}")
-        print(f"The mixing ouput in the RMS, Drum: {round(NEUtil.calculate_rms_dB(drum_data),2)}dB, Clipping Ratio&Cliped Num: {NEUtil.calcaulate_cliped_samples(drum_data)}")
-        print(f"The mixing ouput in the RMS, Bass: {round(NEUtil.calculate_rms_dB(bass_data),2)}dB, Clipping Ratio&Cliped Num: {NEUtil.calcaulate_cliped_samples(bass_data)}")
-        print(f"The mixing ouput in the RMS, Other: {round(NEUtil.calculate_rms_dB(other_data),2)}dB, Clipping Ratio&Cliped Num: {NEUtil.calcaulate_cliped_samples(other_data)}")
-        self.TrackRMS = [round(NEUtil.calculate_rms_dB(vocal_data),2),round(NEUtil.calculate_rms_dB(drum_data),2),round(NEUtil.calculate_rms_dB(bass_data),2),round(NEUtil.calculate_rms_dB(other_data),2)]
-        self.MixingRMS_BeforeFinalMix = round(NEUtil.calculate_rms_dB(pre_mixing_data),2)
 
-
-        print(f"The pre-mixing ouput(no Normalize, no -14 LUFS) in the RMS, Total: {round(NEUtil.calculate_rms_dB(pre_mixing_data),2)}dB, Clipping Ratio&Cliped Num: {NEUtil.calcaulate_cliped_samples(pre_mixing_data)}")
-        print(f"It is {'Noramalized' if isNormalised else 'Unormailzed'} on each track when mixing")
-        """End of Output some key information"""
-
-        mixing_data,srate = self.MixingAudio(vocal_data, drum_data, bass_data, other_data, v_sr, isNormalised,isCompensated)
-        
-        MixingFile = self.OutputMixingFile(mixing_data, srate, filename)
-#        Sccore = self.MeasureOutputs(MixingFile, 96)
-        return MixingFile
 
 
     def ManipulateGAINFulltrack(self, Gain_List, filename):

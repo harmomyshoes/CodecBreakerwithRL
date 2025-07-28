@@ -141,7 +141,7 @@ class continous_RL_train_PPO:
             experience = replay_buffer.gather_all()
             rewards = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'reward') #shape=(sub_episode_num, sub_episode_length)
             observations = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'observation') #shape=(sub_episode_num, sub_episode_length, state_dim)
-            actions = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'action') #shape=(sub_episode_num, sub_episode_length, state_dim)
+            # actions = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'action') #shape=(sub_episode_num, sub_episode_length, state_dim)
             step_types = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'step_type')
             discounts = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'discount')
             time_steps = ts.TimeStep(step_types,
@@ -158,7 +158,8 @@ class continous_RL_train_PPO:
             # 5) grab metrics off loss_info (e.g. loss_info.loss, loss_info.extra)
             print(f"Epoch {n}: policy_loss={loss_info.extra.policy_gradient_loss.numpy():.3f}"
                 f"  value_loss={loss_info.extra.value_estimation_loss:.3f}"
-                f"  entropy_loss={loss_info.extra.entropy_regularization_loss:.3f}")
+                f"  entropy_loss={loss_info.extra.entropy_regularization_loss:.3f}"
+                f"  clip_fraction={loss_info.extra.clip_fraction:.3f}")
             
             ###collecting the key information for the training process
             batch_rewards = rewards.numpy()
@@ -201,7 +202,6 @@ class continous_RL_train_PPO:
                 print('best_solution of this generation=', denormalize_action(best_step))
                 print('best step reward=',best_step_reward)
                 print('avg step reward=', avg_step_reward)
-                print('final_solution=', denormalize_action(self._final_solution), 'final_reward=', self._final_reward)
                 #print('episode of rewards', rewards.round(3))
                 print('act_std:', denormalize_action(actions_distribution.stddev()[0,0].numpy()))
                 print('act_mean:', denormalize_action(actions_distribution.mean()[0,0].numpy())) #second action mean
@@ -212,10 +212,9 @@ class continous_RL_train_PPO:
                 print('obs_mean:', denormalize_action(obs_mean))
                 obs_std  = tf.sqrt(tf.reduce_mean((flat_obs - obs_mean)**2, axis=0))
                 print('obs_std:', denormalize_action(obs_std))
-
                 print('best_step_index:',best_step_index)
+                print('until now, best final_solution=', denormalize_action(self._final_solution), 'best final_reward=', self._final_reward)
                 print(' ')
-                
             self._train_step_num += 1
 
         print('final_solution=',denormalize_action(self._final_solution),'final_reward=',self._final_reward)
@@ -265,12 +264,14 @@ class continous_RL_train_PPO:
         self._REINFORCE_agent = ppo_agent.PPOAgent(
                     time_step_spec = self._train_env.time_step_spec(),
                     action_spec = self._train_env.action_spec(),
+                    discount_factor = 1,
                     optimizer = self._opt,
                     actor_net = actor_net,
                     value_net = value_net,
-                    importance_ratio_clipping= 0.2,
-                    entropy_regularization = 0.0,
-                    num_epochs=25, ### turning to the default value
+                    importance_ratio_clipping= train_cfg["importance_ratio_clipping"],
+ #                   entropy_regularization = 0.0,
+                    entropy_regularization =0.001,
+                    num_epochs=10, ### turning to the default value
                     use_gae= False, ###ultilise the GAE
                     use_td_lambda_return= False,###ultilise the Lamda return
                     train_step_counter = train_step
