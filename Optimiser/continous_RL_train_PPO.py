@@ -141,16 +141,20 @@ class continous_RL_train_PPO:
             experience = replay_buffer.gather_all()
             rewards = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'reward') #shape=(sub_episode_num, sub_episode_length)
             observations = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'observation') #shape=(sub_episode_num, sub_episode_length, state_dim)
+
+            ###The comment out code below is for the purpose if want monitor the interaction with the output of the guassian model.
             # actions = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'action') #shape=(sub_episode_num, sub_episode_length, state_dim)
-            step_types = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'step_type')
-            discounts = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'discount')
-            time_steps = ts.TimeStep(step_types,
-                        tf.zeros_like(rewards),
-                        tf.zeros_like(discounts),
-                        observations
-                        )
-            actions_distribution = self._REINFORCE_agent.collect_policy.distribution(
-                                    time_steps, policy_state=None).action
+            # step_types = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'step_type')
+            # discounts = self.extract_episode(traj_batch=experience,epi_length=self._sub_episode_length,attr_name = 'discount')
+            # time_steps = ts.TimeStep(step_types,
+            #             tf.zeros_like(rewards),
+            #             tf.zeros_like(discounts),
+            #             observations
+            #             )
+            # actions_distribution = self._REINFORCE_agent.collect_policy.distribution(
+            #                         time_steps, policy_state=None).action
+            #############################################################
+
             # 3) let the agent do its own loss‐compute + apply_gradients
             loss_info = self._REINFORCE_agent.train(experience)
             
@@ -203,8 +207,10 @@ class continous_RL_train_PPO:
                 print('best step reward=',best_step_reward)
                 print('avg step reward=', avg_step_reward)
                 #print('episode of rewards', rewards.round(3))
-                print('act_std:', denormalize_action(actions_distribution.stddev()[0,0].numpy()))
-                print('act_mean:', denormalize_action(actions_distribution.mean()[0,0].numpy())) #second action mean
+                #### This return on the std and means, actually give the parameters that use to prediction the 
+                ###next action dependens on the current state, monitor it not directly reflct the change on the sample
+                #print('std:', denormalize_action(actions_distribution.stddev()[0,0].numpy()))
+                #print('mean:', denormalize_action(actions_distribution.mean()[0,0].numpy())) 
 
                 ####print out the observations
                 flat_obs = tf.reshape(batch_obs, [-1, self._state_dim])
