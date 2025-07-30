@@ -319,6 +319,11 @@ class continous_RL_train_PPO:
             
         return tf.constant(new_attr,dtype=attr.dtype)
 
+
+#### The save policy function not getting well with the certain package in the circumstance the
+#### Error "TypeError: this __dict__ descriptor does not support '_DictWrapper' objects"
+#### More possible due to the typing-extensions version, though wehn it low to the required 4.5.0
+#### cause the other issue on the jupyter
     def save_policy(self, filefold):
             if filefold is None:
                 raise ValueError("filefold cannot be None")
