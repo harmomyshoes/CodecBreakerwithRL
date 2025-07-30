@@ -1,18 +1,29 @@
 import numpy as np
-import Optimiser.genetic_evo
-from Optimiser.genetic_evo import GeneticOptimiser
-import Optimiser.continous_RL_train_PPO_debug
-from Optimiser.continous_RL_train_PPO_debug import continous_RL_train_PPO as CRLTrain
+import pandas as pd
+from CODECbreakCode.AudioMixer import FullTrackAudioMixer
+import CODECbreakCode.Evaluator as Evaluator
+from CODECbreakCode.Evaluator import MeasureHAAQIOutput
+import argparse
+from Optimiser.config import get_config, normalize_action, denormalize_action
+
+
 
 def main():
     # GA_Opt = GeneticOptimiser()
     # GA_Opt.ga_init_env()
     # GA_Opt.set_fitnessfun(haaqi_reward_fn)
     # GA_Opt.run(num_generations = 2)
-    trainner = CRLTrain(sub_episode_length=5, sub_episode_num_single_batch=3, env_num=3)
-    trainner.set_environments(f)
-    trainner.PPO_train(update_num=5, eval_intv=1)
+    Reggae_Mixing_Path = '/home/codecrack/CodecBreakerwithRL/AudioEX/Reggae'
+    Reggae_Noise_Generator_MP3 = FullTrackAudioMixer(Reggae_Mixing_Path)
+    #Noise_Generator_MP3.ManipulateInitGAIN([0, 0, 0, 0])
+    Reggae_Referece_File = Reggae_Noise_Generator_MP3.TestDynNoisedFullTrack([0]*24,"Reference_IN_FULL.wav",isNormalised=False,isCompensated=True)
+    print(f"Referece_File:{Reggae_Referece_File}")
 
+    Reggae_Referece_MP3File = Evaluator.Mp3LameLossyCompress(Reggae_Referece_File,64)
+    print(f"Referece_MP3File:{Reggae_Referece_MP3File}")
+    ####initalise the Haaqi
+    MeasureHAAQI = MeasureHAAQIOutput(Reggae_Referece_MP3File)#Initilize the HAAQI with a permanent reference
+    MeasureHAAQI.MeasureHAQQIOutput(Reggae_Referece_MP3File) #Test on how far from itself to itself
 m1=np.array([-0.5,-0.5,-0.5,-0.5])
 m2=np.array([0.5,0.5,0.5,0.5])
 

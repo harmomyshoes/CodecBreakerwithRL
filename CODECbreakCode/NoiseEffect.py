@@ -181,6 +181,7 @@ def DynCompressor_Trans_FullPara(vocal_data, drum_data, bass_data, other_data, s
         o_param = manipulation_list[12:16]
         makeup_gain=0.0
         knee_width=1.0
+
         if v_param is None or d_param is None or b_param is None or o_param is None:
             raise ValueError("Missing compressor parameters.")
        #     return null, srrate

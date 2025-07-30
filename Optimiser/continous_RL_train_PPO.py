@@ -1,11 +1,10 @@
 #import driver
-from tf_agents.drivers import py_driver
 from tf_agents.drivers.dynamic_episode_driver import DynamicEpisodeDriver
 from sklearn.metrics import r2_score
 from sklearn.metrics import mean_squared_error as mse
 
 #import environment
-from tf_agents.environments import py_environment
+from tf_agents.policies import policy_saver
 from tf_agents.environments import tf_py_environment #allows parallel computing for generating experiences
 from tf_agents.environments.parallel_py_environment import ParallelPyEnvironment
 
@@ -320,6 +319,76 @@ class continous_RL_train_PPO:
             
         return tf.constant(new_attr,dtype=attr.dtype)
 
+    def save_policy(self, filefold):
+            if filefold is None:
+                raise ValueError("filefold cannot be None")
+            else:
+                if not os.path.exists(filefold+ 'Policy/'): 
+                    os.makedirs(filefold+ 'Policy/')
+
+            policy_dir = os.path.join(filefold,'Policy/', 'exported_policy')
+            saver = policy_saver.PolicySaver(self._REINFORCE_agent.policy)
+            saver.save(policy_dir)
+
+    def evaluate_saved_policy(self, policy_dir, reward_fn: Callable[[np.ndarray, bool], float], num_episodes = 3):
+        make_env = partial(Env,reward_fn = reward_fn, sub_episode_length=self._sub_episode_length)
+        eval_Env = tf_py_environment.TFPyEnvironment(make_env(), check_dims=True)
+
+        if not os.path.isdir(policy_dir):
+            raise FileNotFoundError(f"Policy directory not found: {policy_dir}")
+        policy =  tf.compat.v2.saved_model.load(policy_dir)
+        policy_state = policy.get_initial_state(batch_size=eval_Env.batch_size)
+
+        # Collect data across episodes
+        records = []
+
+        for ep in range(num_episodes):
+            time_step = eval_Env.reset()
+            step = 0
+            while not time_step.is_last():
+                # 1) Get the full distribution info (mean & std), not just a sampled action
+                dist_info, policy_state = policy.distribution(time_step, policy_state)
+                dist = dist_info.action  # this is a tfd.MultivariateNormalDiag
+
+                # 2) Extract mean & std
+                mean   = dist.mean().numpy()[0]     # shape [action_dim]
+                std    = dist.stddev().numpy()[0]   # same shape
+
+                # 3a) Sample stochastically (training/exploration)
+                action = dist.sample().numpy()[0]
+
+                # 3b) —or— take the deterministic “best” action (evaluation)
+                # action = mean
+
+                # 4) Step the env
+                next_time_step = eval_Env.step(action)
+
+                # 5) Gather reward & state
+                reward = next_time_step.reward.numpy()[0]
+                state  = time_step.observation.numpy()[0]
+
+                # 6) Record everything
+                records.append({
+                    'episode': ep,
+                    'step':    step,
+                    'state':   state,
+                    'mean':    mean,
+                    'std':     std,
+                    'action':  action,
+                    'reward':  reward
+                })
+                print(f"Ep{ep} St{step} | s={state} μ={mean} σ={std} → a={action} r={reward}")
+
+                # 7) Advance
+                time_step = next_time_step
+                step += 1
+
+        # Build DataFrame and display
+        df = pd.DataFrame(records)
+        return df
+
+
+    
     def save_results(self, filefold, para_columns=[], is_outputfulldata = False):
             """
             Save the results of the genetic algorithm to a CSV file.
