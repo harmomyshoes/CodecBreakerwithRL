@@ -95,7 +95,7 @@ echo.
 @REM echo   "!FFMPEG!" -i "!outputMAacFilePath!" -acodec pcm_s!bitdepth!le -ar !srrate! -y -loglevel error "!outputAAcToWavFilePath!"
 "!FFMPEG!" -i "!outputAacFilePath!" -acodec pcm_s!bitdepth!le -ar !srrate! -y -loglevel error "!outputAacToWavFilePath!"
 @REM echo --> WAV written to: !outputAACToWavFilePath!
-echo "The decodec wav file is genrated at outputAacToWavFilePath= !outputAacToWavFilePath! by FFMPEG\n"
+echo "The decodec wav file is genrated at outputAACtoWavfilepath= !outputAacToWavFilePath! by FFMPEG\n"
 
 endlocal
 goto :eof
