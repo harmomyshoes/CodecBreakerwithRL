@@ -105,20 +105,7 @@ def extract_total_nmr(reference_file, test_file):
         print("TotalNMRB not found in output.")
         return None   
 
-# def Mp3LameLossyCompress(FilePath,bitrate):
-#     '''The function is used to compress the file using the lame codec.'''
-#     command_out = os.popen("sh /home/codecrack/Jnotebook/CODECbreakCode/Audio_LameCompress.sh -a %s -b %s " %(FilePath,bitrate)).read()
-#     match = re.search(r"outputMp3toWavfilepath=\s*(.+?)\s+by FFMPEG", command_out)
-
-#     if match:
-#         file_path = match.group(1)  # Capture the file path
-#         return file_path
-#     else:
-#         print("File path not found in the output.") 
-#         return "File path not found in the output."    
-
-
-def Mp3LameLossyCompress(FilePath, bitrate):
+def AacLameLossyCompress(FilePath, bitrate, wrapper = "./Audio_AacCompress.sh"):
     """
     Compresses the file using LAME + FFmpeg.
     On Linux, calls the .sh wrapper.
@@ -126,15 +113,63 @@ def Mp3LameLossyCompress(FilePath, bitrate):
     Returns the decoded WAV path as parsed from the script’s output.
     """
     # 1) Decide which wrapper to call
+    Opt_fold = Path(__file__).resolve().parent
+    print (f"Opt_fold: {Opt_fold}")
     system = platform.system()
     if system == "Windows":
         # note: use raw string or escape backslashes
-        wrapper = r"D:\Xie\CodecBreaker\CodecBreakerwithRL\CODECbreakCode\Audio_LameCompress.bat"
+        #wrapper = r"D:\Xie\CodecBreaker\CodecBreakerwithRL\CODECbreakCode\Audio_LameCompress.bat"
+        wrapper = str(Opt_fold / "Audio_AacCompress.bat")
         # on Windows you don’t need “sh”
         cmd = f'"{wrapper}" -a "{FilePath}" -b {bitrate}'
     else:
         # assume linux/unix
-        wrapper = "/home/codecrack/Jnotebook/CODECbreakCode/Audio_LameCompress.sh"
+        #wrapper = "/home/codecrack/Jnotebook/CODECbreakCode/Audio_AacCompress.sh"
+        wrapper = str(Opt_fold / "Audio_AacCompress.sh")
+        cmd = f'sh "{wrapper}" -a "{FilePath}" -b {bitrate}'
+
+    # 2) Run the command
+    try:
+        # Using subprocess.check_output is a bit more robust than os.popen
+        command_out = subprocess.check_output(
+            cmd, shell=True, stderr=subprocess.STDOUT, text=True
+        )
+    except subprocess.CalledProcessError as e:
+        # You’ll get e.output with any error text
+        print("Compression failed:")
+        print(e.output)
+        return None
+    
+    # 3) Extract the final WAV path
+    m = re.search(r"outputAACtoWavfilepath=\s*(\S+)\s+by FFMPEG", command_out)
+    if m:
+        return m.group(1)
+    else:
+        print("Could not find output path in script output:")
+        print(command_out)
+        return None
+
+def Mp3LameLossyCompress(FilePath, bitrate, wrapper = "./Audio_LameCompress.sh"):
+    """
+    Compresses the file using LAME + FFmpeg.
+    On Linux, calls the .sh wrapper.
+    On Windows, calls the .bat wrapper.
+    Returns the decoded WAV path as parsed from the script’s output.
+    """
+    # 1) Decide which wrapper to call
+    Opt_fold = Path(__file__).resolve().parent
+    print (f"Opt_fold: {Opt_fold}")
+    system = platform.system()
+    if system == "Windows":
+        # note: use raw string or escape backslashes
+        # wrapper = r"D:\Xie\CodecBreaker\CodecBreakerwithRL\CODECbreakCode\Audio_LameCompress.bat"
+        wrapper = str(Opt_fold / "Audio_LameCompress.bat")
+        # on Windows you don’t need “sh”
+        cmd = f'"{wrapper}" -a "{FilePath}" -b {bitrate}'
+    else:
+        # assume linux/unix
+        # wrapper = "/home/codecrack/Jnotebook/CODECbreakCode/Audio_LameCompress.sh"
+        wrapper = str(Opt_fold / "Audio_LameCompress.sh")
         cmd = f'sh "{wrapper}" -a "{FilePath}" -b {bitrate}'
 
     # 2) Run the command

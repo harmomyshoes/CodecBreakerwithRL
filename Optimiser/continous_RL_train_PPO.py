@@ -325,15 +325,16 @@ class continous_RL_train_PPO:
 #### More possible due to the typing-extensions version, though wehn it low to the required 4.5.0
 #### cause the other issue on the jupyter
     def save_policy(self, filefold):
-            if filefold is None:
-                raise ValueError("filefold cannot be None")
-            else:
-                if not os.path.exists(filefold+ 'Policy/'): 
-                    os.makedirs(filefold+ 'Policy/')
+        if filefold is None:
+            raise ValueError("filefold cannot be None")
 
-            policy_dir = os.path.join(filefold,'Policy/', 'exported_policy')
-            saver = policy_saver.PolicySaver(self._REINFORCE_agent.policy)
-            saver.save(policy_dir)
+        policy_dir = os.path.join(filefold,'Policy')
+        os.makedirs(policy_dir, exist_ok=True)
+
+        checkpoint = tf.train.Checkpoint(policy=self._REINFORCE_agent.policy)
+        prefix = os.path.join(policy_dir, 'ckpt')
+        checkpoint.save(file_prefix=prefix)
+        return policy_dir
 
     def evaluate_saved_policy(self, policy_dir, reward_fn: Callable[[np.ndarray, bool], float], num_episodes = 3):
         make_env = partial(Env,reward_fn = reward_fn, sub_episode_length=self._sub_episode_length)
@@ -341,10 +342,18 @@ class continous_RL_train_PPO:
 
         if not os.path.isdir(policy_dir):
             raise FileNotFoundError(f"Policy directory not found: {policy_dir}")
-        policy =  tf.compat.v2.saved_model.load(policy_dir)
-        policy_state = policy.get_initial_state(batch_size=eval_Env.batch_size)
+        
+        policy = self._REINFORCE_agent.policy
+        ckpt = tf.train.Checkpoint(policy=policy)
+        latest_ckpt = tf.train.latest_checkpoint(policy_dir)
 
+        if latest_ckpt is None:
+            raise FileNotFoundError(f"No checkpoints found in {policy_dir}")
+        ckpt.restore(latest_ckpt).expect_partial()
+        policy_state = policy.get_initial_state(eval_Env.batch_size)
+        print(f"Restored policy from {latest_ckpt}")
         # Collect data across episodes
+
         records = []
 
         for ep in range(num_episodes):
@@ -352,15 +361,17 @@ class continous_RL_train_PPO:
             step = 0
             while not time_step.is_last():
                 # 1) Get the full distribution info (mean & std), not just a sampled action
-                dist_info, policy_state = policy.distribution(time_step, policy_state)
-                dist = dist_info.action  # this is a tfd.MultivariateNormalDiag
+                dist_step  = policy.distribution(time_step, policy_state)
+                dist = dist_step.action  # this is a tfd.MultivariateNormalDiag
+                policy_state  = dist_step.state       # updated policy state
+                dist_info     = dist_step.info        # extra info, if you need it
 
                 # 2) Extract mean & std
                 mean   = dist.mean().numpy()[0]     # shape [action_dim]
                 std    = dist.stddev().numpy()[0]   # same shape
 
                 # 3a) Sample stochastically (training/exploration)
-                action = dist.sample().numpy()[0]
+                action = dist.sample().numpy()
 
                 # 3b) —or— take the deterministic “best” action (evaluation)
                 # action = mean
@@ -402,8 +413,8 @@ class continous_RL_train_PPO:
             if filefold is None:
                 raise ValueError("filefold cannot be None")
             else:
-                if not os.path.exists(filefold+ 'Data/'): 
-                    os.makedirs(filefold+ 'Data/')
+                if not os.path.exists(filefold+ '/Data/'): 
+                    os.makedirs(filefold+ '/Data/')
 
             dims = cfg["env"]["state_dim"]
 

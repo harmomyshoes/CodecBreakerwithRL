@@ -135,11 +135,11 @@ class GeneticOptimiser:
             if not os.path.exists(filefold+ 'Data/'):
                 os.makedirs(filefold+ 'Data/')
 
-        if not genre_columns:
-            genre_columns = [f'gene_{i}' for i in range(self._gene_num)]
+        if not para_columns:
+            para_columns = [f'gene_{i}' for i in range(self._gene_num)]
 
         score_df = pd.DataFrame(self._ga_instance.best_solutions_fitness, columns=['score'])
-        manip_df = pd.DataFrame(self._ga_instance.best_solutions, columns=genre_columns)
+        manip_df = pd.DataFrame(self._ga_instance.best_solutions, columns=para_columns)
         data_file_path = os.path.join(filefold, 'Data', f'Evo_Data_BestResults_{datetime.now().strftime("%Y%m%d%H%M")}.csv')
 
 
@@ -153,7 +153,7 @@ class GeneticOptimiser:
                 raise ValueError("No data collected during the evolution process.")
             
             # Create a DataFrame with the collected data
-            Evo_Data_Full = pd.DataFrame(self._collect_data_list, columns=['score'] + genre_columns)
+            Evo_Data_Full = pd.DataFrame(self._collect_data_list, columns=['score'] + para_columns)
             Evo_Data_Full_Path = os.path.join(filefold, 'Data', f'Evo_Data_FullResults_{datetime.now().strftime("%Y%m%d%H%M")}.csv')
             Evo_Data_Full.to_csv(Evo_Data_Full_Path, index=False)
 

@@ -15,31 +15,31 @@ InitalizedInfo()
     referencefullName=$(basename $parameterA);
     #echo $referencefullName;
     referencefileName="${referencefullName%.*}";
-    outputMp3foldpath=$parentreferncefileDir"/Mixing_Result_Mp3"
-    if [ -d "$outputMp3foldpath" ]; then
-        echo "Directory exists: $outputMp3foldpath"
+    outputAACfoldpath=$parentreferncefileDir"/Mixing_Result_AAC"
+    if [ -d "$outputAACfoldpath" ]; then
+        echo "Directory exists: $outputAACfoldpath"
     else
         echo "Directory does not exist. Creating..."
         # Create the directory (for example, using mkdir)
-        mkdir -p "$outputMp3foldpath"
-        echo "Directory created: $outputMp3foldpath"
+        mkdir -p "$outputAACfoldpath"
+        echo "Directory created: $outputAACfoldpath"
     fi
-    outputMp3toWavfoldpath=$parentreferncefileDir"/Mixing_Result_Mp3_Wav"
+    outputAACtoWavfoldpath=$parentreferncefileDir"/Mixing_Result_AAC_Wav"
     #outputMp3toWavfoldpath=$parentreferncefileDir"/Mixing_Result_NC_to_Mp3_WAV"
-    
-    if [ -d "$outputMp3toWavfoldpath" ]; then
-        echo "Directory exists: $outputMp3toWavfoldpath"
+
+    if [ -d "$outputAACtoWavfoldpath" ]; then
+        echo "Directory exists: $outputAACtoWavfoldpath"
     else
         echo "Directory does not exist. Creating..."
         # Create the directory (for example, using mkdir)
-        mkdir -p "$outputMp3toWavfoldpath"
-        echo "Directory created: $outputMp3toWavfoldpath"
-    fi    
-    
-    
-    outputMp3filepath="$outputMp3foldpath"/"$referencefileName"_"$parameterB"kbps.mp3"";
-    outputMp3toWavfilepath="$outputMp3toWavfoldpath"/"$referencefileName"_"$parameterB"kbps.wav"";
-    #outputrsWavfilepath="$referencefileDir"/"$referencefileName"_"$parameterB"kbps_RS.wav"";
+        mkdir -p "$outputAACtoWavfoldpath"
+        echo "Directory created: $outputAACtoWavfoldpath"
+    fi
+
+
+    outputAACfilepath="$outputAACfoldpath"/"$referencefileName"_"$parameterB"kbps.m4a"";
+    outputAACtoWavfilepath="$outputAACtoWavfoldpath"/"$referencefileName"_"$parameterB"kbps.wav"";
+    #outputrsWavfilepath="$referencefileDir"/"$referencefileName"_"$parameterB"kbps_RS.wav";
     #echo $outputMp3filepath;
     #echo $parameterB;
     bitdepth=$(sox --info $parameterA | awk '$1 == "Precision" '|awk -F'[^0-9]+' '{print $2}');
@@ -48,18 +48,22 @@ InitalizedInfo()
     echo "The current refernce file is in $bitdepth-bit and $srrate sample rate\n"
 }
 
+
+###The AAC Encodec and Decodec function with extra folder path
+###due to the libfdkaac is installed in the different path, so the command is different.
 EncodeAndDecode()
 {
-   echo "The upcoming comand is : lame -S --noreplaygain -b $parameterB $parameterA $outputMp3filepath\n";
-   lame --silent --noreplaygain -b $parameterB $parameterA $outputMp3filepath;
-   echo "The mp3 file is generated at $outputMp3filepath\n";
- 
+   #echo "The upcoming comand is : /ffmpeg/ffmpeg -i $parameterA -c:a libfdk_aac -b:a $parameterB"k" $outputAACfilepath";
+   /ffmpeg/ffmpeg -i $parameterA -c:a libfdk_aac -b:a $parameterB"k" -loglevel error $outputAACfilepath;
+   echo "The aac file is generated at $outputAACfilepath\n";
+
    #lame --silent --noreplaygain --decode $outputMp3filepath $outputMp3toWavfilepath;
    #echo "The decodec wav file is genrated at $outputMp3toWavfilepath";
 
    #Shift to the FFMPEG because it supporting multi bitwidth
-   ffmpeg -i $outputMp3filepath -acodec pcm_s"$bitdepth"le -ar $srrate -y -loglevel error $outputMp3toWavfilepath
-   echo "The decodec wav file is genrated at outputMp3toWavfilepath= $outputMp3toWavfilepath by FFMPEG\n";
+   #echo "The upcoming comand is : /ffmpeg/ffmpeg -i $outputAACfilepath -acodec pcm_s"$bitdepth"le -ar $srrate -y -loglevel error $outputAACtoWavfilepath";
+   /ffmpeg/ffmpeg -i $outputAACfilepath -acodec pcm_s"$bitdepth"le -ar $srrate -y -loglevel error $outputAACtoWavfilepath;
+   echo "The decodec wav file is genrated at outputAACtoWavfilepath= $outputAACtoWavfilepath by FFMPEG\n";
 
    #find out the resample by sox and gstpeaq are pretty similar result. the problem is possible due to the when convert mp to wav by sox, this step causing some unexpected result.
    #sox $outputMp3filepath -b $bitdepth -r $srrate $outputMp3toWavfilepath;

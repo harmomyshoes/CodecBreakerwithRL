@@ -32,7 +32,7 @@ class FullTrackAudioMixer:
             print("Mixing File Load Sucessful")
 
 
-    def EraseTheMp3Mixing(self):
+    def EraseTheMixing(self):
         """
         Remove all files and subdirectories in the given mixing-result directories.
         """
@@ -41,6 +41,8 @@ class FullTrackAudioMixer:
             os.path.join(self.Foldpath, "Mixing_Result"),
             os.path.join(self.Foldpath, "Mixing_Result_Mp3"),
             os.path.join(self.Foldpath, "Mixing_Result_Mp3_Wav"),
+            os.path.join(self.Foldpath, "Mixing_Result_AAC"),
+            os.path.join(self.Foldpath, "Mixing_Result_AAC_Wav"),
         ]
 
         for directory_to_empty in dirs_to_empty:
@@ -679,7 +681,7 @@ class SingleFileAudioMixer:
             None
         return mixing_data,mixing_sr,isMONO
     
-    def EraseTheMp3Mixing(self):
+    def EraseTheMixing(self):
         """
         Remove all files and subdirectories in the given mixing-result directories.
         """
@@ -688,6 +690,8 @@ class SingleFileAudioMixer:
             os.path.join(self.Foldpath, "Mixing_Result"),
             os.path.join(self.Foldpath, "Mixing_Result_Mp3"),
             os.path.join(self.Foldpath, "Mixing_Result_Mp3_Wav"),
+            os.path.join(self.Foldpath, "Mixing_Result_AAC"),
+            os.path.join(self.Foldpath, "Mixing_Result_AAC_Wav"),
         ]
 
         for directory_to_empty in dirs_to_empty:

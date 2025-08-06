@@ -36,7 +36,7 @@ CONFIG = {
         "num_generations": 200,
         "mutation_rate": 0.3,
         "parents_mating": 2,
-        "step": [0.01, 0.01, 0.01, 0.1,0.01, 0.01, 0.01, 0.1,0.01, 0.01, 0.01, 0.1,0.01, 0.01, 0.01, 0.1,]
+        "step": [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01,]
     },
     "mc_optimiser": {
         "sampling_per_step": 30, ## equal to sub_episode_num_single_batch * sub_episode_length 
