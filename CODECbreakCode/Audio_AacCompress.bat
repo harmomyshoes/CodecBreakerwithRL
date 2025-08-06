@@ -35,31 +35,32 @@ rem strip trailing backslash
 set "refDirNoSlash=!referencefileDir:~0,-1!"
 for %%G in ("!refDirNoSlash!") do set "parentreferencefileDir=%%~dpG"
 
-set "outputMp3FolderPath=!parentreferencefileDir!Mixing_Result_Mp3"
-if exist "!outputMp3FolderPath!" (
-  @REM echo Directory exists: !outputMp3FolderPath!
+set "outputAacFolderPath=!parentreferencefileDir!Mixing_Result_Aac"
+if exist "!outputAacFolderPath!" (
+  @REM echo Directory exists: !outputAacFolderPath!
 ) else (
   echo Directory does not exist. Creating...
-  mkdir "!outputMp3FolderPath!"
-  echo Created: !outputMp3FolderPath!
+  mkdir "!outputAacFolderPath!"
+  echo Created: !outputAacFolderPath!
 )
 
-set "outputMp3ToWavFolderPath=!parentreferencefileDir!Mixing_Result_Mp3_Wav"
-if exist "!outputMp3ToWavFolderPath!" (
-  @REM echo Directory exists: !outputMp3ToWavFolderPath!
+set "outputAacToWavFolderPath=!parentreferencefileDir!Mixing_Result_Aac_Wav"
+if exist "!outputAacToWavFolderPath!" (
+  @REM echo Directory exists: !outputAacToWavFolderPath!
 ) else (
   echo Directory does not exist. Creating...
-  mkdir "!outputMp3ToWavFolderPath!"
-  echo Created: !outputMp3ToWavFolderPath!
+  mkdir "!outputAacToWavFolderPath!"
+  echo Created: !outputAacToWavFolderPath!
 )
 
-set "outputMp3FilePath=!outputMp3FolderPath!\!referencefileName!_!parameterB!kbps.mp3"
-set "outputMp3ToWavFilePath=!outputMp3ToWavFolderPath!\!referencefileName!_!parameterB!kbps.wav"
+set "outputAacFilePath=!outputAacFolderPath!\!referencefileName!_!parameterB!kbps.m4a"
+set "outputAacToWavFilePath=!outputAacToWavFolderPath!\!referencefileName!_!parameterB!kbps.wav"
 
 rem ------------------------------------------------------------------------
 rem Probe original file for bit-depth and sample rate via SoX
 set "SOX=D:\Xie\sox\sox.exe"
 set "srrate=%srrate: =%"
+
 for /F "delims=" %%A in ('%SOX% --info -r %parameterA%') do (
   set "srrate=%%A"
 )
@@ -76,26 +77,25 @@ if "!bitdepth!"=="25" (
 
 @REM # echo.
 @REM # echo Reference file is !bitdepth!bit, !srrate!Hz.
-
+set "FFMPEG=D:\Xie\FFmpeg-x86_64\ffmpeg.exe"
 rem ------------------------------------------------------------------------
-rem Encode to MP3 with LAME
-set "LAME=D:\Xie\lame\lame.exe"
+rem Encode to AAC with FFMPEG
 @REM echo.
 @REM echo Running LAME:
 
 @REM echo   "!LAME!" -silent --noreplaygain -b !parameterB! "!parameterA!" "!outputMp3FilePath!"
-"!LAME!" --silent --noreplaygain -b !parameterB! "!parameterA!" "!outputMp3FilePath!"
-echo --> MP3 written to: !outputMp3FilePath!
+@REM "!LAME!" --silent --noreplaygain -b !parameterB! "!parameterA!" "!outputMp3FilePath!"
+"!FFMPEG!" -i "!parameterA!" -c:a libfdk_aac -b:a !parameterB!k -y -loglevel error "!outputAacFilePath!"
+echo --> AAC written to: !outputAacFilePath!
 
 rem ------------------------------------------------------------------------
-rem Decode MP3 back to WAV with FFmpeg
-set "FFMPEG=D:\Xie\ffmpeg\bin\ffmpeg.exe"
+rem Decode Aac back to WAV with FFmpeg
 echo.
 @REM echo Running FFmpeg:
-@REM echo   "!FFMPEG!" -i "!outputMp3FilePath!" -acodec pcm_s!bitdepth!le -ar !srrate! -y -loglevel error "!outputMp3ToWavFilePath!"
-"!FFMPEG!" -i "!outputMp3FilePath!" -acodec pcm_s!bitdepth!le -ar !srrate! -y -loglevel error "!outputMp3ToWavFilePath!"
-@REM echo --> WAV written to: !outputMp3ToWavFilePath!
-echo "The decodec wav file is genrated at outputMp3toWavfilepath= !outputMp3ToWavFilePath! by FFMPEG\n"
+@REM echo   "!FFMPEG!" -i "!outputMAacFilePath!" -acodec pcm_s!bitdepth!le -ar !srrate! -y -loglevel error "!outputAAcToWavFilePath!"
+"!FFMPEG!" -i "!outputAacFilePath!" -acodec pcm_s!bitdepth!le -ar !srrate! -y -loglevel error "!outputAacToWavFilePath!"
+@REM echo --> WAV written to: !outputAACToWavFilePath!
+echo "The decodec wav file is genrated at outputAacToWavFilePath= !outputAacToWavFilePath! by FFMPEG\n"
 
 endlocal
 goto :eof
@@ -104,5 +104,5 @@ goto :eof
 echo.
 echo Usage: %~nx0 -a AudioFilePath -b Bitrate
 echo    -a The path to the source audio file
-echo    -b The LAME bitrate (e.g. 192)
+echo    -b The compression bitrate (e.g. 192)
 exit /b 1
