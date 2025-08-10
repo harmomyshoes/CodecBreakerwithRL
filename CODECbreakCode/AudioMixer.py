@@ -43,6 +43,7 @@ class FullTrackAudioMixer:
             os.path.join(self.Foldpath, "Mixing_Result_Mp3_Wav"),
             os.path.join(self.Foldpath, "Mixing_Result_AAC"),
             os.path.join(self.Foldpath, "Mixing_Result_AAC_Wav"),
+            os.path.join(self.Foldpath, "Mixing_Result_NeuralCodec_Wav"),
         ]
 
         for directory_to_empty in dirs_to_empty:

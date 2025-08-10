@@ -4,6 +4,12 @@ import os
 import subprocess
 import platform
 from pathlib import Path
+
+from encodec import EncodecModel
+from encodec.utils import convert_audio,save_audio
+import torchaudio
+import torch
+
 #import wave
 def MeasurePEAQOutputsVsRefencefile(FilePath,bitrate,RefFile):
     '''The function is used to measure the PEAQ score of the file and its codec counterpart.
@@ -105,6 +111,46 @@ def extract_total_nmr(reference_file, test_file):
         print("TotalNMRB not found in output.")
         return None   
 
+def NeuralCodecCompress(FilePath, bitrate=24):
+    Opt_fold = Path(FilePath).resolve().parent
+    # print(f"Opt_fold: {Opt_fold}")
+    GeneratingFold = Opt_fold / 'Mixing_Result_NeuralCodec_Wav/'
+    if not os.path.exists(GeneratingFold):
+        os.makedirs(GeneratingFold)
+    NCWavFileName = Path(FilePath).stem +"_"+str(bitrate)+"kbps.wav"
+    NCWavFile = GeneratingFold / NCWavFileName
+
+
+    model = EncodecModel.encodec_model_48khz()
+    model.set_target_bandwidth(24.)
+    wav, sr = torchaudio.load(FilePath)
+    if wav.shape[1] == 1:  # If mono
+        wav = wav.repeat(1, 2, 1)
+    wav = convert_audio(wav, sr, model.sample_rate, model.channels)
+    wav = wav.unsqueeze(0)  # Add batch dimension: [1, channels, time]
+
+    with torch.no_grad():
+        encoded_frames = model.encode(wav)
+
+    # Decode
+    with torch.no_grad():
+        decoded_wav = model.decode(encoded_frames)
+
+    # print(f"Decoded audio: {decoded_wav.shape}")
+
+    # Convert to mono AFTER decoding
+    decoded_wav = decoded_wav.squeeze(0)  # Remove batch dimension: [channels, time]
+
+    if decoded_wav.shape[0] > 1:  # If stereo/multi-channel
+        mono_wav_l = decoded_wav[0:1, :]  # [1, time]
+        torchaudio.save("premixing_lm_left.wav", mono_wav_l, model.sample_rate)
+    else:
+        raise ValueError("mono_method not working")
+    
+    save_audio(mono_wav_l,NCWavFile,model.sample_rate)
+    return NCWavFile
+
+
 def AacLameLossyCompress(FilePath, bitrate, wrapper = "./Audio_AacCompress.sh"):
     """
     Compresses the file using LAME + FFmpeg.
@@ -114,7 +160,7 @@ def AacLameLossyCompress(FilePath, bitrate, wrapper = "./Audio_AacCompress.sh"):
     """
     # 1) Decide which wrapper to call
     Opt_fold = Path(__file__).resolve().parent
-    print (f"Opt_fold: {Opt_fold}")
+    # print (f"Opt_fold: {Opt_fold}")
     system = platform.system()
     if system == "Windows":
         # note: use raw string or escape backslashes
@@ -158,7 +204,7 @@ def Mp3LameLossyCompress(FilePath, bitrate, wrapper = "./Audio_LameCompress.sh")
     """
     # 1) Decide which wrapper to call
     Opt_fold = Path(__file__).resolve().parent
-    print (f"Opt_fold: {Opt_fold}")
+    # print (f"Opt_fold: {Opt_fold}")
     system = platform.system()
     if system == "Windows":
         # note: use raw string or escape backslashes
